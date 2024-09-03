@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Shikanoko</string>
+    <string name="menu_db_name">База данных</string>
+    <string name="menu_main_name">Главная</string>
+    <string name="menu_testing_name">Тестирование</string>
+    <string name="db_word_name">Слово</string>
+    <string name="db_meaning_name">Перевод</string>
+    <string name="db_add_button">Добавить слово</string>
+</resources>

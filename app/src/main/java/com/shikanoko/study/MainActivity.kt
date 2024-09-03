@@ -16,7 +16,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -47,19 +46,19 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier.padding(16.dp))
                             HorizontalDivider()
                             NavigationDrawerItem(
-                                label = { Text(text = "Тестирование") },
-                                selected = false,
-                                onClick = { navController.navigate(TestingScreen.route)
-                                    currentScreen = TestingScreen}
-                            )
-                            NavigationDrawerItem(
-                                label = { Text(text = "Основа") },
+                                label = { Text(text = stringResource(id = R.string.menu_main_name)) },
                                 selected = false,
                                 onClick = { navController.navigate(MainScreen.route)
                                     currentScreen = MainScreen}
                             )
                             NavigationDrawerItem(
-                                label = { Text(text = "База данных") },
+                                label = { Text(text = stringResource(id = R.string.menu_testing_name)) },
+                                selected = false,
+                                onClick = { navController.navigate(TestingScreen.route)
+                                    currentScreen = TestingScreen}
+                            )
+                            NavigationDrawerItem(
+                                label = { Text(text = stringResource(id = R.string.menu_db_name)) },
                                 selected = false,
                                 onClick = { navController.navigate(DBScreen.route)
                                     currentScreen = DBScreen}

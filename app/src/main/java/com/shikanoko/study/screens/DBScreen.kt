@@ -48,7 +48,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.shikanoko.study.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -68,7 +70,10 @@ fun DBScreen () {
             mutableStateOf<List<Word>>(emptyList())
         }
         val padding = 8.dp
-        Column (Modifier.padding(top = 40.dp).padding(padding)){
+        Column (
+            Modifier
+                .padding(top = 40.dp)
+                .padding(padding)){
             var word by rememberSaveable { mutableStateOf("") }
             var meaning by rememberSaveable { mutableStateOf("") }
 
@@ -76,14 +81,14 @@ fun DBScreen () {
                 value = word,
                 singleLine = true,
                 onValueChange = { word = it },
-                label = { Text("Слово") },
+                label = { Text(stringResource(id = R.string.db_word_name)) },
                 modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.size(padding))
             OutlinedTextField(
                 value = meaning,
                 singleLine = true,
                 onValueChange = { meaning = it },
-                label = { Text("Значение") },
+                label = { Text(stringResource(id = R.string.db_meaning_name)) },
                 modifier = Modifier.fillMaxWidth())
 
             Spacer(Modifier.size(padding))
@@ -101,11 +106,10 @@ fun DBScreen () {
                 words = wordDao.getAllWords()
                 }
             }) {
-                Text("Добавить слово")
+                Text(stringResource(id = R.string.db_add_button))
             }
             Spacer(Modifier.size(padding))
             LaunchedEffect(Unit) {
-                //wordDao.insertWord(Word(meaning = "Спасибо", word = "ありがとう"))
                 words = wordDao.getAllWords()
             }
             LazyColumn{
@@ -119,7 +123,7 @@ fun DBScreen () {
                             Row(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(MaterialTheme.colorScheme.error) // TODO: Change color
+                                    .background(MaterialTheme.colorScheme.error)
                                     .padding(12.dp, 8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.End
