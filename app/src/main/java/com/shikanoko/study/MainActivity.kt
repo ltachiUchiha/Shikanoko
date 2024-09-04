@@ -23,9 +23,9 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.shikanoko.study.screens.DBScreen
 import com.shikanoko.study.screens.MainScreen
 import com.shikanoko.study.screens.TestingScreen
-import com.shikanoko.study.screens.DBScreen
 import com.shikanoko.study.ui.theme.ShikanokoTheme
 
 
