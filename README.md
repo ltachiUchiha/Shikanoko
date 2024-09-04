@@ -17,7 +17,8 @@ Android application for record, remember, and study new words, as well as test y
 ## Supporting languages
 
 * Russian
-* English (in the future)
+* English
+* Japanese (in the future)
 
 ### Credits
 * Programmers: [Itachi aka me](https://github.com/ltachiUchiha)
