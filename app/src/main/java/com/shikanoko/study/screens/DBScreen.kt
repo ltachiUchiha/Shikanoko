@@ -43,6 +43,7 @@ import androidx.room.Room
 import com.shikanoko.study.NokoDatabase
 import com.shikanoko.study.R
 import com.shikanoko.study.Word
+import com.shikanoko.study.getDaoInstance
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,9 +54,7 @@ fun DBScreen () {
         color = MaterialTheme.colorScheme.surface
     ) {
         val composableScope = rememberCoroutineScope()
-        val db = Room.databaseBuilder(LocalContext.current, NokoDatabase::class.java, "noko-db")
-            .build()
-        val wordDao = db.nokoDao()
+        val wordDao = getDaoInstance(LocalContext.current)
         var words by remember {
             mutableStateOf<List<Word>>(emptyList())
         }
