@@ -6,4 +6,5 @@
     <string name="db_word_name">Word</string>
     <string name="db_meaning_name">Meaning</string>
     <string name="db_add_button">Add a word</string>
+    <string name="testing_check_btn">Check the answer</string>
 </resources>

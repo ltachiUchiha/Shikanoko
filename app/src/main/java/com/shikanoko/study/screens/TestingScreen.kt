@@ -32,17 +32,21 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.shikanoko.study.R
 import com.shikanoko.study.Word
 import com.shikanoko.study.getDaoInstance
 import kotlinx.coroutines.launch
 
 @Composable
-fun TestingScreen(){
+fun TestingScreen(navController: NavController){
     Surface (modifier = Modifier
         .fillMaxSize(),
         color = MaterialTheme.colorScheme.surface
     ) {
+        val context = LocalContext.current
         val composableScope = rememberCoroutineScope()
         val padding = 8.dp
         val wordDao = getDaoInstance(LocalContext.current)
@@ -52,6 +56,7 @@ fun TestingScreen(){
 
         Column (
             horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
             modifier = Modifier
                 .padding(top = 40.dp)
                 .padding(padding)) {
@@ -67,7 +72,7 @@ fun TestingScreen(){
                 }
             }
 
-            Text(testingValue.word)
+            Text(text = testingValue.word, fontSize = 30.sp)
 
             Spacer(Modifier.size(padding))
 
@@ -80,16 +85,32 @@ fun TestingScreen(){
             Spacer(Modifier.size(padding))
 
             Button(onClick = {
-                wordsList.remove(testingValue)
-                if (wordsList.isNotEmpty()) {
+                if(checkAnswer(testingValue, userValue)){
+                    Toast.makeText(context, "Good", Toast.LENGTH_SHORT).show()
+                    wordsList.remove(testingValue)
+
+                    if (wordsList.isNotEmpty())
+                        testingValue = wordsList.random()
+                    else
+                       navController.navigate(com.shikanoko.study.MainScreen.route)
+                }
+                else {
+                    Toast.makeText(context, "Bad", Toast.LENGTH_SHORT).show()
                     testingValue = wordsList.random()
                 }
+                userValue = ""
+
             }) {
-                Text("Проверка")
+                Text(text = stringResource(id = R.string.testing_check_btn))
             }
         }
     }
 }
+
+private fun checkAnswer(testingValue: Word, userValue: String): Boolean{
+    return userValue.lowercase() == testingValue.meaning.lowercase().trim() && userValue.trim() != ""
+}
+
 @Composable
 fun KanjiCard(){
     Row(
@@ -113,7 +134,6 @@ fun KanjiCard(){
 
     }
 }
-
 
 @Composable
 fun TestCard(){

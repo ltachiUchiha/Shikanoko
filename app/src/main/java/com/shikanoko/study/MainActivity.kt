@@ -72,7 +72,7 @@ class MainActivity : ComponentActivity() {
                             MainScreen()
                         }
                         composable (route = TestingScreen.route ) {
-                            TestingScreen()
+                            TestingScreen(navController)
                         }
                         composable (route = DBScreen.route) {
                             DBScreen()
