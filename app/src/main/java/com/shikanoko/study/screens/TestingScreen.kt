@@ -121,7 +121,7 @@ fun TestingScreen(navController: NavController){
 }
 
 private fun checkAnswer(testingValue: Word, userValue: String): Boolean{
-    return userValue.lowercase() == testingValue.meaning.lowercase().trim() && userValue.trim() != ""
+    return userValue.lowercase().trim() == testingValue.meaning.lowercase().trim() && userValue.trim() != ""
 }
 
 @Composable
