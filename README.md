@@ -23,3 +23,4 @@ Android application for record, remember, and study new words, as well as test y
 
 ### Credits
 * Programmers: [Itachi aka me](https://github.com/ltachiUchiha)
+
