@@ -39,8 +39,6 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.room.Room
-import com.shikanoko.study.NokoDatabase
 import com.shikanoko.study.R
 import com.shikanoko.study.Word
 import com.shikanoko.study.getDaoInstance

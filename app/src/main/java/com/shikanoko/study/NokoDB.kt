@@ -1,7 +1,6 @@
 package com.shikanoko.study
 
 import android.content.Context
-import androidx.compose.ui.platform.LocalContext
 import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
