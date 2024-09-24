@@ -20,7 +20,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -35,7 +34,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import com.shikanoko.study.R
 import com.shikanoko.study.Word
 import com.shikanoko.study.getDaoInstance
@@ -43,79 +41,90 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
-fun TestingScreen(navController: NavController){
+fun TestingScreen(navController: NavController, args: String?){
     Surface (modifier = Modifier
         .fillMaxSize(),
         color = MaterialTheme.colorScheme.surface
     ) {
-        val context = LocalContext.current
-        val composableScope = rememberCoroutineScope()
-        val padding = 8.dp
-        val wordDao = getDaoInstance(LocalContext.current)
-        var wordsList by remember {
-            mutableStateOf<MutableList<Word>>(mutableListOf())
+        if (args == null)
+            TestByEnter(navController = navController)
+        else
+        {
+            TestByCards()
         }
 
-        Column (
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier
-                .padding(top = 40.dp)
-                .padding(padding)) {
+    }
+}
 
-            var testingValue by remember { mutableStateOf(Word(word = "", meaning = "")) }
-            var userValue by remember { mutableStateOf("") }
-            var testTextColor by remember { mutableStateOf(Color.White) }
+@Composable
+private fun TestByEnter(navController: NavController){
+    val context = LocalContext.current
+    val composableScope = rememberCoroutineScope()
+    val padding = 8.dp
+    val wordDao = getDaoInstance(LocalContext.current)
+    var wordsList by remember {
+        mutableStateOf<MutableList<Word>>(mutableListOf())
+    }
 
-            LaunchedEffect(Unit){
+    Column (
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        modifier = Modifier
+            .padding(top = 40.dp)
+            .padding(padding)) {
+
+        var testingValue by remember { mutableStateOf(Word(word = "", meaning = "")) }
+        var userValue by remember { mutableStateOf("") }
+        var testTextColor by remember { mutableStateOf(Color.White) }
+
+        LaunchedEffect(Unit){
+            composableScope.launch {
+                wordsList = wordDao.getAllWords().toMutableList()
+                wordsList.shuffle()
+                testingValue = wordsList.random()
+            }
+        }
+
+        Text(text = testingValue.word, fontSize = 30.sp, color = testTextColor)
+
+        Spacer(Modifier.size(padding))
+
+        OutlinedTextField(
+            value = userValue,
+            singleLine = true,
+            onValueChange = { userValue = it },
+            label = { Text(stringResource(id = R.string.db_meaning_name)) },
+            modifier = Modifier.fillMaxWidth())
+        Spacer(Modifier.size(padding))
+
+        Button(onClick = {
+            if(checkAnswer(testingValue, userValue)){
                 composableScope.launch {
-                    wordsList = wordDao.getAllWords().toMutableList()
-                    wordsList.shuffle()
+                    Toast.makeText(context, "Good", Toast.LENGTH_SHORT).show()
+                    testTextColor = Color.Green
+                    delay(2000)
+                    testTextColor = Color.White
+                    if (wordsList.isNotEmpty())
+                        testingValue = wordsList.random()
+                    else
+                        navController.navigate(com.shikanoko.study.MainScreen.route)
+                }
+                wordsList.remove(testingValue)
+            }
+            else {
+                composableScope.launch {
+                    Toast.makeText(context, "Bad", Toast.LENGTH_SHORT).show()
+                    testTextColor = Color.Red
+                    delay(2000)
+                    testTextColor = Color.White
                     testingValue = wordsList.random()
                 }
+
             }
+            userValue = ""
 
-            Text(text = testingValue.word, fontSize = 30.sp, color = testTextColor)
-
-            Spacer(Modifier.size(padding))
-
-            OutlinedTextField(
-                value = userValue,
-                singleLine = true,
-                onValueChange = { userValue = it },
-                label = { Text(stringResource(id = R.string.db_meaning_name)) },
-                modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.size(padding))
-
-            Button(onClick = {
-                if(checkAnswer(testingValue, userValue)){
-                    composableScope.launch {
-                        Toast.makeText(context, "Good", Toast.LENGTH_SHORT).show()
-                        testTextColor = Color.Green
-                        delay(2000)
-                        testTextColor = Color.White
-                        if (wordsList.isNotEmpty())
-                            testingValue = wordsList.random()
-                        else
-                            navController.navigate(com.shikanoko.study.MainScreen.route)
-                    }
-                    wordsList.remove(testingValue)
-                }
-                else {
-                    composableScope.launch {
-                        Toast.makeText(context, "Bad", Toast.LENGTH_SHORT).show()
-                        testTextColor = Color.Red
-                        delay(2000)
-                        testTextColor = Color.White
-                        testingValue = wordsList.random()
-                    }
-
-                }
-                userValue = ""
-
-            }) {
-                Text(text = stringResource(id = R.string.testing_check_btn))
-            }
+        }) {
+            Text(text = stringResource(id = R.string.testing_check_btn))
         }
     }
 }
@@ -149,7 +158,7 @@ fun KanjiCard(){
 }
 
 @Composable
-fun TestCard(){
+fun TestByCards(){
     Row(
         verticalAlignment = Alignment.Bottom,
         modifier = Modifier
