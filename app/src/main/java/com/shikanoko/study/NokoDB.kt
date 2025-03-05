@@ -12,12 +12,14 @@ import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Update
+import kotlinx.coroutines.runBlocking
 
 @Entity
 data class Word(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     @ColumnInfo(name = "word") val word:String,
-    @ColumnInfo(name = "meaning") val meaning:String
+    @ColumnInfo(name = "meaning") val meaning:String,
+    //@ColumnInfo(name = "partOfSpeech") val partOfSpeech:String
 )
 
 @Dao
@@ -48,6 +50,15 @@ fun getDaoInstance(context: Context): NokoDao {
         val db = Room.databaseBuilder(context, NokoDatabase::class.java, "noko-db")
             .build()
         wordDao = db.nokoDao()
+        runBlocking {
+            wordDao!!.insertWord(Word(word = "すき", meaning = "любимый"))
+            wordDao!!.insertWord(Word(word = "りょうり", meaning = "блюдо"))
+            wordDao!!.insertWord(Word(word = "ものもの", meaning = "напиток"))
+            wordDao!!.insertWord(Word(word = "かたかな", meaning = "катакана"))
+            wordDao!!.insertWord(Word(word = "ひらがな", meaning = "хирагана"))
+            wordDao!!.insertWord(Word(word = "かんじ", meaning = "иероглиф"))
+        }
+
         return wordDao as NokoDao
     }
     return wordDao as NokoDao

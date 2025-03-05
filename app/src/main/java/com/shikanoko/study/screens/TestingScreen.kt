@@ -37,6 +37,7 @@ import androidx.navigation.NavController
 import com.shikanoko.study.R
 import com.shikanoko.study.Word
 import com.shikanoko.study.getDaoInstance
+import com.shikanoko.study.ui.theme.ShikanokoTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -47,12 +48,12 @@ fun TestingScreen(navController: NavController, args: String?){
         color = MaterialTheme.colorScheme.surface
     ) {
         if (args == null)
-            TestByEnter(navController = navController)
+            //TestByEnter(navController = navController)
+            TestByCards()
         else
         {
             TestByCards()
         }
-
     }
 }
 
@@ -159,36 +160,69 @@ fun KanjiCard(){
 
 @Composable
 fun TestByCards(){
-    Row(
-        verticalAlignment = Alignment.Bottom,
-        modifier = Modifier
-            .fillMaxWidth()
-            .fillMaxHeight(1f)
-    ){
-        KanaColumn(0.5f)
-        KanaColumn(1f)
+    val composableScope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    val wordDao = getDaoInstance(LocalContext.current)
+    var currentWord by remember { mutableStateOf(Word(word = "", meaning = ""))}
+    var wordsList by remember {
+        mutableStateOf<MutableList<Word>>(mutableListOf())
     }
+
+    LaunchedEffect(Unit){
+        composableScope.launch {
+            wordsList = wordDao.getAllWords().toMutableList()
+            wordsList.shuffle()
+            currentWord = wordsList[1]
+        }
+    }
+
+    Column (horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Bottom,
+        modifier = Modifier
+            .padding(top = 40.dp)
+            .padding(8.dp)) {
+        Text(text = currentWord.word, fontSize = 30.sp)
+
+        Spacer(Modifier.padding(8.dp))
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.5f)
+        ){
+
+            if (wordsList.size != 0) {
+                KanaColumn(0.5f, wordsList.subList(0, 3))
+                KanaColumn(1f, wordsList.subList(3, 6))
+            }
+        }
+    }
+
 }
 
 @Composable
-fun KanaColumn(fraction: Float){
+fun KanaColumn(fraction: Float, words: MutableList<Word>){
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceEvenly,
         modifier = Modifier
             .fillMaxWidth(fraction)
-            .fillMaxHeight(0.5f)
+            .fillMaxHeight(1f)
     ){
-        KanaElement(text = "Тест1", 1)
-        KanaElement(text = "Тест2", 2)
-        KanaElement(text = "Тест3", 3)
+        KanaElement(text = words[0].meaning)
+        KanaElement(text = words[1].meaning)
+        KanaElement(text = words[2].meaning)
     }
 }
 
 @Composable
-fun KanaElement(text: String, number: Int){
+fun KanaElement(text: String){
     Button(
-        onClick = { /*TODO*/ },
+        onClick = {
+
+        },
         modifier = Modifier
             .fillMaxWidth(0.85f)
             .size(100.dp)
