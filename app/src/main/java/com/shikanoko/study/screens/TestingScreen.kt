@@ -1,5 +1,6 @@
 package com.shikanoko.study.screens
 
+import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -37,7 +38,7 @@ import androidx.navigation.NavController
 import com.shikanoko.study.R
 import com.shikanoko.study.Word
 import com.shikanoko.study.getDaoInstance
-import com.shikanoko.study.ui.theme.ShikanokoTheme
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -49,10 +50,10 @@ fun TestingScreen(navController: NavController, args: String?){
     ) {
         if (args == null)
             //TestByEnter(navController = navController)
-            TestByCards()
+            TestByCards(navController)
         else
         {
-            TestByCards()
+            TestByCards(navController)
         }
     }
 }
@@ -66,6 +67,9 @@ private fun TestByEnter(navController: NavController){
     var wordsList by remember {
         mutableStateOf<MutableList<Word>>(mutableListOf())
     }
+    var currentTestingWord by remember { mutableStateOf(Word(word = "", meaning = "")) }
+    var userValue by remember { mutableStateOf("") }
+    var testTextColor by remember { mutableStateOf(Color.White) }
 
     Column (
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -74,19 +78,15 @@ private fun TestByEnter(navController: NavController){
             .padding(top = 40.dp)
             .padding(padding)) {
 
-        var testingValue by remember { mutableStateOf(Word(word = "", meaning = "")) }
-        var userValue by remember { mutableStateOf("") }
-        var testTextColor by remember { mutableStateOf(Color.White) }
-
         LaunchedEffect(Unit){
             composableScope.launch {
                 wordsList = wordDao.getAllWords().toMutableList()
                 wordsList.shuffle()
-                testingValue = wordsList.random()
+                currentTestingWord = wordsList.random()
             }
         }
 
-        Text(text = testingValue.word, fontSize = 30.sp, color = testTextColor)
+        Text(text = currentTestingWord.word, fontSize = 30.sp, color = testTextColor)
 
         Spacer(Modifier.size(padding))
 
@@ -99,18 +99,18 @@ private fun TestByEnter(navController: NavController){
         Spacer(Modifier.size(padding))
 
         Button(onClick = {
-            if(checkAnswer(testingValue, userValue)){
+            if(checkAnswer(currentTestingWord, userValue)){
                 composableScope.launch {
                     Toast.makeText(context, "Good", Toast.LENGTH_SHORT).show()
                     testTextColor = Color.Green
                     delay(2000)
                     testTextColor = Color.White
                     if (wordsList.isNotEmpty())
-                        testingValue = wordsList.random()
+                        currentTestingWord = wordsList.random()
                     else
                         navController.navigate(com.shikanoko.study.MainScreen.route)
                 }
-                wordsList.remove(testingValue)
+                wordsList.remove(currentTestingWord)
             }
             else {
                 composableScope.launch {
@@ -118,7 +118,7 @@ private fun TestByEnter(navController: NavController){
                     testTextColor = Color.Red
                     delay(2000)
                     testTextColor = Color.White
-                    testingValue = wordsList.random()
+                    currentTestingWord = wordsList.random()
                 }
 
             }
@@ -159,21 +159,59 @@ fun KanjiCard(){
 }
 
 @Composable
-fun TestByCards(){
+fun TestByCards(navController: NavController){
     val composableScope = rememberCoroutineScope()
     val context = LocalContext.current
 
     val wordDao = getDaoInstance(LocalContext.current)
-    var currentWord by remember { mutableStateOf(Word(word = "", meaning = ""))}
+    var currentTestingWord by remember { mutableStateOf(Word(word = "", meaning = ""))}
     var wordsList by remember {
         mutableStateOf<MutableList<Word>>(mutableListOf())
     }
+    var wordsForButtons by remember {
+        mutableStateOf<MutableList<Word>>(mutableListOf())
+    }
+    var testTextColor by remember { mutableStateOf(Color.White) }
 
     LaunchedEffect(Unit){
         composableScope.launch {
             wordsList = wordDao.getAllWords().toMutableList()
             wordsList.shuffle()
-            currentWord = wordsList[1]
+            currentTestingWord = wordsList[0]
+            wordsForButtons = wordsList.toMutableList()
+        }
+    }
+
+    val onKanaButtonClick: (String) -> Unit = { userValue ->
+        if(checkAnswer(currentTestingWord, userValue)){
+            composableScope.launch {
+                Toast.makeText(context, "Good", Toast.LENGTH_SHORT).show()
+
+                testTextColor = Color.Green
+                delay(2000)
+                testTextColor = Color.White
+
+                if (wordsList.isNotEmpty()) {
+                    currentTestingWord = wordsList.random()
+                    wordsForButtons.shuffle()
+                }
+                else {
+                    navController.navigate(com.shikanoko.study.MainScreen.route)
+                }
+            }
+            wordsList.remove(currentTestingWord)
+        }
+        else {
+            composableScope.launch {
+                Toast.makeText(context, "Bad", Toast.LENGTH_SHORT).show()
+
+                testTextColor = Color.Red
+                delay(2000)
+                testTextColor = Color.White
+
+                currentTestingWord = wordsList.random()
+            }
+
         }
     }
 
@@ -182,7 +220,7 @@ fun TestByCards(){
         modifier = Modifier
             .padding(top = 40.dp)
             .padding(8.dp)) {
-        Text(text = currentWord.word, fontSize = 30.sp)
+        Text(text = currentTestingWord.word, fontSize = 30.sp, color = testTextColor)
 
         Spacer(Modifier.padding(8.dp))
 
@@ -193,9 +231,9 @@ fun TestByCards(){
                 .fillMaxHeight(0.5f)
         ){
 
-            if (wordsList.size != 0) {
-                KanaColumn(0.5f, wordsList.subList(0, 3))
-                KanaColumn(1f, wordsList.subList(3, 6))
+            if (wordsForButtons.size != 0) {
+                KanaColumn(0.5f, wordsForButtons.subList(0, 3), onKanaButtonClick)
+                KanaColumn(1f, wordsForButtons.subList(3, 6), onKanaButtonClick)
             }
         }
     }
@@ -203,7 +241,7 @@ fun TestByCards(){
 }
 
 @Composable
-fun KanaColumn(fraction: Float, words: MutableList<Word>){
+fun KanaColumn(fraction: Float, words: MutableList<Word>, onKanaButtonClick: (String) -> Unit){
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceEvenly,
@@ -211,24 +249,22 @@ fun KanaColumn(fraction: Float, words: MutableList<Word>){
             .fillMaxWidth(fraction)
             .fillMaxHeight(1f)
     ){
-        KanaElement(text = words[0].meaning)
-        KanaElement(text = words[1].meaning)
-        KanaElement(text = words[2].meaning)
+        KanaElement(word = words[0], onKanaButtonClick)
+        KanaElement(word = words[1], onKanaButtonClick)
+        KanaElement(word = words[2], onKanaButtonClick)
     }
 }
 
 @Composable
-fun KanaElement(text: String){
+fun KanaElement(word: Word, onKanaButtonClick: (String) -> Unit){
     Button(
-        onClick = {
-
-        },
+        onClick = { onKanaButtonClick(word.meaning) },
         modifier = Modifier
             .fillMaxWidth(0.85f)
             .size(100.dp)
             .padding(3.dp),
         shape = RoundedCornerShape(30)
     ){
-        Text(text)
+        Text(word.meaning)
     }
 }

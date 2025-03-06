@@ -1,5 +1,6 @@
 package com.shikanoko.study.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -130,10 +131,20 @@ fun DBScreen () {
                     }
 
                     if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
+                        val context = LocalContext.current
+                        val composableScope = rememberCoroutineScope()
                         LaunchedEffect(Unit) {
-                            wordDao.deleteWord(it)
-                            words = wordDao.getAllWords()
+                            composableScope.launch {
+                                wordDao.deleteWord(it)
+                            }.invokeOnCompletion {
+                                composableScope.launch {
+                                    words = wordDao.getAllWords()
+                                    Toast.makeText(context, "Deleted", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+
                         }
+
                     }
                 }
             }
