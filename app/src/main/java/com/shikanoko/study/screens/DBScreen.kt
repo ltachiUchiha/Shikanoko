@@ -81,6 +81,7 @@ fun DBScreen () {
 
             Spacer(Modifier.size(padding))
 
+
             Button(onClick = {
                 word = word.trim()
                 meaning = meaning.trim()
@@ -88,13 +89,22 @@ fun DBScreen () {
                     return@Button
                 }
                 composableScope.launch {
-                wordDao.insertWord(Word(word = word, meaning = meaning))
-                word = ""
-                meaning = ""
-                words = wordDao.getAllWords()
+                    wordDao.insertWord(Word(word = word, meaning = meaning))
+                    word = ""
+                    meaning = ""
+                    words = wordDao.getAllWords()
                 }
             }) {
                 Text(stringResource(id = R.string.db_add_button))
+            }
+
+            Button(onClick = {
+                composableScope.launch {
+                    wordDao.deleteAllWords()
+                    words = wordDao.getAllWords()
+                }
+            }) {
+                Text("Delete all words")
             }
             Spacer(Modifier.size(padding))
             LaunchedEffect(Unit) {

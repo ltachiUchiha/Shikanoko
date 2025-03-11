@@ -19,6 +19,7 @@ output.json
 *.iml
 /.idea/
 .idea
+.idea/
 misc.xml
 deploymentTargetDropDown.xml
 render.experimental.xml

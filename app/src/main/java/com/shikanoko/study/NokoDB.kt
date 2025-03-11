@@ -36,7 +36,8 @@ interface NokoDao {
     @Query("SELECT * FROM word")
     suspend fun getAllWords(): List<Word>
 
-
+    @Query("DELETE FROM word")
+    suspend fun deleteAllWords()
 }
 
 @Database(entities = [Word::class], version = 1)
@@ -51,12 +52,14 @@ fun getDaoInstance(context: Context): NokoDao {
             .build()
         wordDao = db.nokoDao()
         runBlocking {
+            /*
             wordDao!!.insertWord(Word(word = "すき", meaning = "любимый"))
             wordDao!!.insertWord(Word(word = "りょうり", meaning = "блюдо"))
             wordDao!!.insertWord(Word(word = "ものもの", meaning = "напиток"))
             wordDao!!.insertWord(Word(word = "かたかな", meaning = "катакана"))
             wordDao!!.insertWord(Word(word = "ひらがな", meaning = "хирагана"))
             wordDao!!.insertWord(Word(word = "かんじ", meaning = "иероглиф"))
+             */
         }
 
         return wordDao as NokoDao
