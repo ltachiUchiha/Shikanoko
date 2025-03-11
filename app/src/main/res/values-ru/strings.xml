@@ -8,4 +8,5 @@
     <string name="db_meaning_name">Перевод</string>
     <string name="db_add_button">Добавить слово</string>
     <string name="testing_check_btn">Проверить ответ</string>
+    <string name="settings_name_popup">Настройки тестирования</string>
 </resources>

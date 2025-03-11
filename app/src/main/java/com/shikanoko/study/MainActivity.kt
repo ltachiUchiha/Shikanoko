@@ -4,7 +4,14 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -13,6 +20,7 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -20,11 +28,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -46,6 +57,54 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 var currentScreen: NokoDestination by remember { mutableStateOf(MainScreen) }
                 val drawerState = rememberDrawerState(DrawerValue.Closed)
+
+                val testingSettingsDialog = remember { mutableStateOf(false) }
+                var testingSettings = false;
+                if(testingSettingsDialog.value){
+                    Dialog( onDismissRequest = {
+                        testingSettingsDialog.value = false;
+                    }) {
+                        Card (modifier = Modifier.fillMaxWidth()
+                            .fillMaxHeight(0.5f)
+                            .padding(16.dp),
+                            shape = RoundedCornerShape(16.dp),
+                        ) {
+                            Text(text = stringResource(R.string.settings_name_popup),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp))
+                            Column(horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Bottom,
+                                modifier = Modifier
+                                    .padding(top = 40.dp)
+                                    .padding(8.dp)
+                                    .fillMaxHeight()){
+
+                                Row(verticalAlignment = Alignment.Bottom,
+                                    horizontalArrangement = Arrangement.SpaceEvenly,
+                                    modifier = Modifier
+                                        .fillMaxWidth()){
+                                    TextButton(onClick = {testingSettingsDialog.value = false}) {
+                                        Text("Close")
+                                    }
+
+                                    TextButton(onClick = {
+                                        testingSettingsDialog.value = false
+                                        navController.navigate(TestingScreen.route)
+                                        currentScreen = TestingScreen
+                                        composableScope.launch { drawerState.close() }
+                                    }) {
+                                        Text("Confirm")
+                                    }
+                                }
+                            }
+
+                        }
+
+                    }
+                }
+
                 ModalNavigationDrawer(
                     drawerState = drawerState,
                     drawerContent = {
@@ -66,9 +125,9 @@ class MainActivity : ComponentActivity() {
                             NavigationDrawerItem(
                                 label = { Text(text = stringResource(id = R.string.menu_testing_name)) },
                                 selected = false,
-                                onClick = { navController.navigate(TestingScreen.route)
-                                    currentScreen = TestingScreen
+                                onClick = {
                                     composableScope.launch { drawerState.close() }
+                                    testingSettingsDialog.value = true
                                 }
                             )
                             NavigationDrawerItem(
