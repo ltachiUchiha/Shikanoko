@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -23,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,6 +54,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ShikanokoTheme {
+                var args = remember { mutableStateOf("Card") }
+
+
                 val composableScope = rememberCoroutineScope()
 
                 val navController = rememberNavController()
@@ -81,6 +86,9 @@ class MainActivity : ComponentActivity() {
                                     .padding(8.dp)
                                     .fillMaxHeight()){
 
+                                var checkTypeOfTest by remember { mutableStateOf(false) }
+                                Checkbox(checkTypeOfTest, onCheckedChange = {checkTypeOfTest = it}, enabled = true)
+
                                 Row(verticalAlignment = Alignment.Bottom,
                                     horizontalArrangement = Arrangement.SpaceEvenly,
                                     modifier = Modifier
@@ -91,6 +99,8 @@ class MainActivity : ComponentActivity() {
 
                                     TextButton(onClick = {
                                         testingSettingsDialog.value = false
+                                        if(checkTypeOfTest)
+                                            args.value = "Text"
                                         navController.navigate(TestingScreen.route)
                                         currentScreen = TestingScreen
                                         composableScope.launch { drawerState.close() }
@@ -148,7 +158,7 @@ class MainActivity : ComponentActivity() {
                                 MainScreen()
                             }
                             composable (route = TestingScreen.route ) {
-                                TestingScreen(navController, null)
+                                TestingScreen(navController, args.value)
                             }
                             composable (route = DBScreen.route) {
                                 DBScreen()

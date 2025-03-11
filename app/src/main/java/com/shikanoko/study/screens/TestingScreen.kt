@@ -44,17 +44,16 @@ import kotlinx.coroutines.launch
 import kotlin.random.Random
 
 @Composable
-fun TestingScreen(navController: NavController, args: String?){
+fun TestingScreen(navController: NavController, args: String){
     Surface (modifier = Modifier
         .fillMaxSize(),
         color = MaterialTheme.colorScheme.surface
     ) {
-        if (args == null)
-            //TestByEnter(navController = navController)
+        if (args == "Card")
             TestByCards(navController)
         else
         {
-            TestByCards(navController)
+            TestByEnter(navController = navController)
         }
     }
 }
