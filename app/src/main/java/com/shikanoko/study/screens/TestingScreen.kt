@@ -41,6 +41,7 @@ import com.shikanoko.study.getDaoInstance
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.random.Random
 
 @Composable
 fun TestingScreen(navController: NavController, args: String?){
@@ -194,6 +195,15 @@ fun TestByCards(navController: NavController){
                 if (wordsList.isNotEmpty()) {
                     currentTestingWord = wordsList.random()
                     wordsForButtons.shuffle()
+
+                    var checkRightAnswer = false
+                    for(i in 0..5){
+                        if(wordsForButtons[i] == currentTestingWord)
+                            checkRightAnswer = true
+                    }
+
+                    if(!checkRightAnswer)
+                        wordsForButtons[Random.nextInt(0, 5)] = currentTestingWord
                 }
                 else {
                     navController.navigate(com.shikanoko.study.MainScreen.route)
@@ -210,6 +220,16 @@ fun TestByCards(navController: NavController){
                 testTextColor = Color.White
 
                 currentTestingWord = wordsList.random()
+                wordsForButtons.shuffle()
+
+                var checkRightAnswer = false
+                for(i in 0..5){
+                    if(wordsForButtons[i] == currentTestingWord)
+                        checkRightAnswer = true
+                }
+
+                if(!checkRightAnswer)
+                    wordsForButtons[Random.nextInt(0, 5)] = currentTestingWord
             }
 
         }
