@@ -98,7 +98,8 @@ fun DBScreen () {
                     wordDao.insertWord(Word(word = word, meaning = meaning))
                     word = ""
                     meaning = ""
-                    //words.addAll(wordDao.getAllWords())
+                    words.clear()
+                    words.addAll(wordDao.getAllWords())
                 }
             }) {
                 Text(stringResource(id = R.string.db_add_button))
@@ -107,7 +108,7 @@ fun DBScreen () {
             Button(onClick = {
                 composableScope.launch {
                     wordDao.deleteAllWords()
-                    //words.addAll(wordDao.getAllWords())
+                    words.clear()
                 }
             }) {
                 Text("Delete all words")
@@ -119,13 +120,15 @@ fun DBScreen () {
 
             LazyColumn (modifier = Modifier.fillMaxHeight()){
 
-                items(items = words, key = {it.id}) { it ->
+                items(items = words, key = {it.id}) {
                     val dismissState = rememberSwipeToDismissBoxState(
                         confirmValueChange = { state ->
                             if(state == SwipeToDismissBoxValue.EndToStart){
                                 words.remove(it)
                                 composableScope.launch {
-                                    //wordDao.deleteWord(it)
+                                    wordDao.deleteWord(it)
+                                    words.clear()
+                                    words.addAll(wordDao.getAllWords())
                                 }
                                 true
                             }
