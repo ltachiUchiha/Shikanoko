@@ -1,16 +1,20 @@
 package com.shikanoko.study.screens
 
 import android.widget.Toast
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -29,11 +33,13 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
@@ -43,6 +49,8 @@ import androidx.compose.ui.unit.dp
 import com.shikanoko.study.R
 import com.shikanoko.study.Word
 import com.shikanoko.study.getDaoInstance
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -54,9 +62,7 @@ fun DBScreen () {
     ) {
         val composableScope = rememberCoroutineScope()
         val wordDao = getDaoInstance(LocalContext.current)
-        var words by remember {
-            mutableStateOf<List<Word>>(emptyList())
-        }
+        val words = remember { mutableStateListOf<Word>() }
         val padding = 8.dp
         Column (
             Modifier
@@ -92,7 +98,7 @@ fun DBScreen () {
                     wordDao.insertWord(Word(word = word, meaning = meaning))
                     word = ""
                     meaning = ""
-                    words = wordDao.getAllWords()
+                    //words.addAll(wordDao.getAllWords())
                 }
             }) {
                 Text(stringResource(id = R.string.db_add_button))
@@ -101,18 +107,32 @@ fun DBScreen () {
             Button(onClick = {
                 composableScope.launch {
                     wordDao.deleteAllWords()
-                    words = wordDao.getAllWords()
+                    //words.addAll(wordDao.getAllWords())
                 }
             }) {
                 Text("Delete all words")
             }
             Spacer(Modifier.size(padding))
             LaunchedEffect(Unit) {
-                words = wordDao.getAllWords()
+                words.addAll(wordDao.getAllWords())
             }
-            LazyColumn{
-                itemsIndexed(words) { _, it ->
-                    val dismissState = rememberSwipeToDismissBoxState()
+
+            LazyColumn (modifier = Modifier.fillMaxHeight()){
+
+                items(items = words, key = {it.id}) { it ->
+                    val dismissState = rememberSwipeToDismissBoxState(
+                        confirmValueChange = { state ->
+                            if(state == SwipeToDismissBoxValue.EndToStart){
+                                words.remove(it)
+                                composableScope.launch {
+                                    //wordDao.deleteWord(it)
+                                }
+                                true
+                            }
+                            else false
+                        }
+                    )
+
                     SwipeToDismissBox(
                         state = dismissState,
                         enableDismissFromEndToStart = true,
@@ -133,29 +153,13 @@ fun DBScreen () {
                                 )
                             }
                         },
-                    ) {
-                        OutlinedCard(shape = RectangleShape) {
-                            ListItem(headlineContent = { Text(text = it.word) },
-                                supportingContent = { Text(text = it.meaning) })
-                        }
-                    }
-
-                    if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
-                        val context = LocalContext.current
-                        val composableScope = rememberCoroutineScope()
-                        LaunchedEffect(Unit) {
-                            composableScope.launch {
-                                wordDao.deleteWord(it)
-                            }.invokeOnCompletion {
-                                composableScope.launch {
-                                    words = wordDao.getAllWords()
-                                    Toast.makeText(context, "Deleted", Toast.LENGTH_SHORT).show()
-                                }
+                        content = {
+                            OutlinedCard(shape = RectangleShape) {
+                                ListItem(headlineContent = { Text(text = it.word) },
+                                    supportingContent = { Text(text = it.meaning) })
                             }
+                        })
 
-                        }
-
-                    }
                 }
             }
         }
