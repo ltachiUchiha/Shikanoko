@@ -2,6 +2,7 @@ package com.shikanoko.study.resources
 
 import android.content.Context
 import android.util.Log
+import android.widget.Toast
 import com.shikanoko.study.R
 import org.xmlpull.v1.XmlPullParser
 
@@ -25,30 +26,28 @@ class NihonCSVRepository {
         var translation: String = ""
         var lesson: Int = 0
         var add: Boolean = false
-
+        var text = ""
         val wordsList = mutableListOf<NihonCSVWord>()
 
         while (parser.next() != XmlPullParser.END_DOCUMENT) {
-            when (parser.name){
-                "kanji" -> kanji = readText(parser)
-                "kana" -> kana = readText(parser)
-                "translation" -> translation = readText(parser)
-                "lesson" -> lesson = readText(parser).toInt()
-                "add" -> add = readText(parser).lowercase().toBoolean()
 
+            if (parser.eventType == XmlPullParser.TEXT) {
+                text = parser.text
             }
 
-            wordsList.add(NihonCSVWord(kanji, kana, translation, lesson, add))
+            else if (parser.eventType == XmlPullParser.END_TAG){
+                when (parser.name){
+                    "Kanji" -> kanji = text
+                    "Kana" -> kana = text
+                    "Translation" -> translation = text
+                    "Lesson" -> lesson = text.toInt()
+                    "Add" -> add = text.lowercase().toBoolean()
+                    "row" ->  wordsList.add(NihonCSVWord(kanji, kana, translation, lesson, add))
+                }
+            }
         }
 
-    }
-    private fun readText(parser: XmlPullParser): String {
-        var result = ""
-        if (parser.next() == XmlPullParser.TEXT) {
-            result = parser.text
-            parser.nextTag()
-        }
-        return result
+        Toast.makeText(context, "End", Toast.LENGTH_SHORT).show()
     }
 
 }
