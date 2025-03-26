@@ -1,6 +1,5 @@
 package com.shikanoko.study.screens
 
-import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -36,9 +35,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.shikanoko.study.R
-import com.shikanoko.study.Word
-import com.shikanoko.study.getDaoInstance
-import kotlinx.coroutines.CoroutineScope
+import com.shikanoko.study.resources.Word
+import com.shikanoko.study.resources.getDaoInstance
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.random.Random

@@ -5,6 +5,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import com.shikanoko.study.resources.NihonCSVRepository
 
 @Composable
 fun MainScreen () {
@@ -12,6 +14,7 @@ fun MainScreen () {
         modifier = Modifier
             .fillMaxSize()
     ) {
-
+        val nihonCSVRepository = NihonCSVRepository()
+        nihonCSVRepository.getAllWords(LocalContext.current)
     }
 }
