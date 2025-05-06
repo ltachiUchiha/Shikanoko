@@ -1,13 +1,12 @@
 package com.shikanoko.study.resources
 
 import android.content.Context
-import android.util.Log
 import android.widget.Toast
 import com.shikanoko.study.R
 import org.xmlpull.v1.XmlPullParser
 
 // Data class for words from "Minna no Nihongo"
-data class NihonCSVWord(
+data class NihongoWord(
     var kanji: String = "",
     var kana: String = "",
     var translation: String = "",
@@ -16,14 +15,14 @@ data class NihonCSVWord(
 )
 
 // Repository for working with words from "Minna no Nihongo"
-class NihonCSVRepository {
+class NihongoXMLRepository {
     fun getAllWords(context: Context){
         val parser = context.resources.getXml(R.xml.nihon)
         //parser.require(XmlPullParser.START_TAG, null, "resources")
 
-        var word = NihonCSVWord()
+        var word = NihongoWord()
 
-        val wordsList = mutableListOf<NihonCSVWord>()
+        val wordsList = mutableListOf<NihongoWord>()
 
         while (parser.next() != XmlPullParser.END_DOCUMENT) {
             if(parser.name == "row"){
@@ -35,8 +34,8 @@ class NihonCSVRepository {
         Toast.makeText(context, "end", Toast.LENGTH_SHORT).show()
     }
 
-    private fun readWord(parser: XmlPullParser): NihonCSVWord {
-        val word = NihonCSVWord()
+    private fun readWord(parser: XmlPullParser): NihongoWord {
+        val word = NihongoWord()
         while (parser.name != "row"){
             when (parser.name){
                 "Kanji" -> word.kanji = readText(parser)
