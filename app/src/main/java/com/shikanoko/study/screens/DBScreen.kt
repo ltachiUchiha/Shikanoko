@@ -42,8 +42,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.shikanoko.study.R
-import com.shikanoko.study.resources.Word
-import com.shikanoko.study.resources.getDaoInstance
+import com.shikanoko.study.repositories.Word
+import com.shikanoko.study.repositories.getDaoInstance
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)

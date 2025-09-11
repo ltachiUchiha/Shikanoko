@@ -36,8 +36,8 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.shikanoko.study.R
 import com.shikanoko.study.repositories.NihongoXMLRepository
-import com.shikanoko.study.resources.Word
-import com.shikanoko.study.resources.getDaoInstance
+import com.shikanoko.study.repositories.Word
+import com.shikanoko.study.repositories.getDaoInstance
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.random.Random

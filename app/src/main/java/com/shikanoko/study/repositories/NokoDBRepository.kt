@@ -1,4 +1,4 @@
-package com.shikanoko.study.resources
+package com.shikanoko.study.repositories
 
 import android.content.Context
 import androidx.room.ColumnInfo
