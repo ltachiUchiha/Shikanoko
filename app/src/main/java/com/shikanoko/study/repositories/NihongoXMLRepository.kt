@@ -1,26 +1,14 @@
-package com.shikanoko.study.resources
+package com.shikanoko.study.repositories
 
 import android.content.Context
-import android.widget.Toast
 import com.shikanoko.study.R
+import com.shikanoko.study.data.NihongoWord
 import org.xmlpull.v1.XmlPullParser
-
-// Data class for words from "Minna no Nihongo"
-data class NihongoWord(
-    var kanji: String = "",
-    var kana: String = "",
-    var translation: String = "",
-    var lesson: Int = 0,
-    var add: Boolean = false
-)
 
 // Repository for working with words from "Minna no Nihongo"
 class NihongoXMLRepository {
-    fun getAllWords(context: Context){
+    fun getAllWords(context: Context): MutableList<NihongoWord> {
         val parser = context.resources.getXml(R.xml.nihon)
-        //parser.require(XmlPullParser.START_TAG, null, "resources")
-
-        var word = NihongoWord()
 
         val wordsList = mutableListOf<NihongoWord>()
 
@@ -31,7 +19,7 @@ class NihongoXMLRepository {
             }
 
         }
-        Toast.makeText(context, "end", Toast.LENGTH_SHORT).show()
+        return wordsList
     }
 
     private fun readWord(parser: XmlPullParser): NihongoWord {

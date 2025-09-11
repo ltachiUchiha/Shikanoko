@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.shikanoko.study.R
-import com.shikanoko.study.resources.NihongoXMLRepository
+import com.shikanoko.study.repositories.NihongoXMLRepository
 import com.shikanoko.study.resources.Word
 import com.shikanoko.study.resources.getDaoInstance
 import kotlinx.coroutines.delay
