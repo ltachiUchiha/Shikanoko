@@ -178,7 +178,7 @@ fun TestByCards(navController: NavController, source: String){
             if(source == "Minna"){
                 var number = 0
                 val minna = NihongoXMLRepository()
-                val nihongoWords = minna.getAllWords(context)
+                val nihongoWords = minna.loadData(context)
                 nihongoWords.forEach { wordsList.add(Word(number++, it.kana, it.translation)) }
             }
             else
@@ -190,35 +190,26 @@ fun TestByCards(navController: NavController, source: String){
     }
 
     val onKanaButtonClick: (String) -> Unit = { userValue ->
-        if(checkAnswer(currentTestingWord, userValue)){
-            composableScope.launch {
+        composableScope.launch {
+            if(checkAnswer(currentTestingWord, userValue)){
                 Toast.makeText(context, "Good", Toast.LENGTH_SHORT).show()
 
                 testTextColor = Color.Green
                 delay(2000)
                 testTextColor = Color.White
 
-                if (wordsList.isNotEmpty()) {
-                    currentTestingWord = wordsList.random()
-                    wordsForButtons.shuffle()
-
-                    var checkRightAnswer = false
-                    for(i in 0..5){
-                        if(wordsForButtons[i] == currentTestingWord)
-                            checkRightAnswer = true
-                    }
-
-                    if(!checkRightAnswer)
-                        wordsForButtons[Random.nextInt(0, 5)] = currentTestingWord
+                if (wordsList.isEmpty()) {
+                    return@launch navController.navigate(com.shikanoko.study.MainScreen.route)
                 }
-                else {
-                    navController.navigate(com.shikanoko.study.MainScreen.route)
-                }
+
+                currentTestingWord = wordsList.random()
+                wordsForButtons.shuffle()
+
+                if(!wordsForButtons.contains(currentTestingWord))
+                    wordsForButtons[Random.nextInt(0, 5)] = currentTestingWord
+                wordsList.remove(currentTestingWord)
             }
-            wordsList.remove(currentTestingWord)
-        }
-        else {
-            composableScope.launch {
+            else {
                 Toast.makeText(context, "Wrong. Answer: ${currentTestingWord.meaning}", Toast.LENGTH_SHORT).show()
 
                 testTextColor = Color.Red
@@ -228,16 +219,9 @@ fun TestByCards(navController: NavController, source: String){
                 currentTestingWord = wordsList.random()
                 wordsForButtons.shuffle()
 
-                var checkRightAnswer = false
-                for(i in 0..5){
-                    if(wordsForButtons[i] == currentTestingWord)
-                        checkRightAnswer = true
-                }
-
-                if(!checkRightAnswer)
+                if(!wordsForButtons.contains(currentTestingWord))
                     wordsForButtons[Random.nextInt(0, 5)] = currentTestingWord
             }
-
         }
     }
 

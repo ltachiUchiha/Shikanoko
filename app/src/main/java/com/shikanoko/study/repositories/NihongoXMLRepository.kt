@@ -7,7 +7,7 @@ import org.xmlpull.v1.XmlPullParser
 
 // Repository for working with words from "Minna no Nihongo"
 class NihongoXMLRepository {
-    fun getAllWords(context: Context): MutableList<NihongoWord> {
+    fun loadData(context: Context): MutableList<NihongoWord> {
         val parser = context.resources.getXml(R.xml.nihon)
 
         val wordsList = mutableListOf<NihongoWord>()
