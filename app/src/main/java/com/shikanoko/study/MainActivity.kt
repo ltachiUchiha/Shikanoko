@@ -5,16 +5,24 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -26,6 +34,7 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -54,8 +63,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ShikanokoTheme {
-                var args = remember { mutableStateOf("Card") }
-
+                val args = remember { mutableStateOf(mutableListOf("", "")) }
 
                 val composableScope = rememberCoroutineScope()
 
@@ -86,7 +94,43 @@ class MainActivity : ComponentActivity() {
                                     .padding(8.dp)
                                     .fillMaxHeight()){
 
+                                Text("Words source")
+                                var expanded by remember { mutableStateOf(false) }
+                                Box(
+                                    modifier = Modifier
+                                        .padding(16.dp)
+                                ) {
+                                    val buttonTextList = listOf("Local database", "Minna no Nihongo")
+                                    val buttonText = remember{mutableStateOf(buttonTextList[0])}
+                                    Button(onClick = { expanded = !expanded }) {
+                                        Text(buttonText.value)
+                                    }
+                                    DropdownMenu(
+                                        expanded = expanded,
+                                        onDismissRequest = { expanded = false }
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text("Local database") },
+                                            onClick = {
+                                                args.value[1] = "Local"
+                                                buttonText.value = buttonTextList[0]
+                                                expanded = false
+                                            }
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("Minna no Nihongo") },
+                                            onClick = {
+                                                args.value[1] = "Minna"
+                                                buttonText.value = buttonTextList[1]
+                                                expanded = false
+                                            }
+                                        )
+                                    }
+                                }
+
+                                Text("Test by enter")
                                 var checkTypeOfTest by remember { mutableStateOf(false) }
+
                                 Checkbox(checkTypeOfTest, onCheckedChange = {checkTypeOfTest = it}, enabled = true)
 
                                 Row(verticalAlignment = Alignment.Bottom,
@@ -100,7 +144,9 @@ class MainActivity : ComponentActivity() {
                                     TextButton(onClick = {
                                         testingSettingsDialog.value = false
                                         if(checkTypeOfTest)
-                                            args.value = "Text"
+                                            args.value[0] = "Text"
+                                        else
+                                            args.value[0] = "Card"
                                         navController.navigate(TestingScreen.route)
                                         currentScreen = TestingScreen
                                         composableScope.launch { drawerState.close() }

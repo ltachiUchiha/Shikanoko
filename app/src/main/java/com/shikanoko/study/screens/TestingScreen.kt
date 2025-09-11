@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.shikanoko.study.R
+import com.shikanoko.study.resources.NihongoXMLRepository
 import com.shikanoko.study.resources.Word
 import com.shikanoko.study.resources.getDaoInstance
 import kotlinx.coroutines.delay
@@ -42,13 +43,13 @@ import kotlinx.coroutines.launch
 import kotlin.random.Random
 
 @Composable
-fun TestingScreen(navController: NavController, args: String){
+fun TestingScreen(navController: NavController, args: MutableList<String>){
     Surface (modifier = Modifier
         .fillMaxSize(),
         color = MaterialTheme.colorScheme.surface
     ) {
-        if (args == "Card")
-            TestByCards(navController)
+        if (args[0] == "Card")
+            TestByCards(navController, args[1])
         else
         {
             TestByEnter(navController = navController)
@@ -62,6 +63,7 @@ private fun TestByEnter(navController: NavController){
     val composableScope = rememberCoroutineScope()
     val padding = 8.dp
     val wordDao = getDaoInstance(LocalContext.current)
+
     var wordsList by remember {
         mutableStateOf<MutableList<Word>>(mutableListOf())
     }
@@ -157,7 +159,7 @@ fun KanjiCard(){
 }
 
 @Composable
-fun TestByCards(navController: NavController){
+fun TestByCards(navController: NavController, source: String){
     val composableScope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -173,7 +175,14 @@ fun TestByCards(navController: NavController){
 
     LaunchedEffect(Unit){
         composableScope.launch {
-            wordsList = wordDao.getAllWords().toMutableList()
+            if(source == "Minna"){
+                var number = 0
+                val minna = NihongoXMLRepository()
+                val nihongoWords = minna.getAllWords(context)
+                nihongoWords.forEach { wordsList.add(Word(number++, it.kana, it.translation)) }
+            }
+            else
+                wordsList = wordDao.getAllWords().toMutableList()
             wordsList.shuffle()
             currentTestingWord = wordsList[0]
             wordsForButtons = wordsList.toMutableList()
@@ -210,7 +219,7 @@ fun TestByCards(navController: NavController){
         }
         else {
             composableScope.launch {
-                Toast.makeText(context, "Bad", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Wrong. Answer: ${currentTestingWord.meaning}", Toast.LENGTH_SHORT).show()
 
                 testTextColor = Color.Red
                 delay(2000)
