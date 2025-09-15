@@ -1,0 +1,199 @@
+package com.shikanoko.study.navigation
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import com.shikanoko.study.DBScreen
+import com.shikanoko.study.MainScreen
+import com.shikanoko.study.NokoDestination
+import com.shikanoko.study.R
+import com.shikanoko.study.TestingScreen
+import kotlinx.coroutines.launch
+
+@Composable
+fun MainNavigation(navController: NavHostController){
+    val args = remember { mutableStateOf(mutableListOf("", "")) }
+
+    val composableScope = rememberCoroutineScope()
+
+    var currentScreen: NokoDestination by remember { mutableStateOf(MainScreen) }
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+
+    val testingSettingsDialog = remember { mutableStateOf(false) }
+    var testingSettings = false;
+    if(testingSettingsDialog.value){
+        Dialog( onDismissRequest = {
+            testingSettingsDialog.value = false;
+        }) {
+            Card (modifier = Modifier.fillMaxWidth()
+                .fillMaxHeight(0.5f)
+                .padding(16.dp),
+                shape = RoundedCornerShape(16.dp),
+            ) {
+                Text(text = stringResource(R.string.settings_name_popup),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Bottom,
+                    modifier = Modifier
+                        .padding(top = 40.dp)
+                        .padding(8.dp)
+                        .fillMaxHeight()){
+
+                    Text("Words source")
+                    var expanded by remember { mutableStateOf(false) }
+                    Box(
+                        modifier = Modifier
+                            .padding(16.dp)
+                    ) {
+                        val buttonTextList = listOf("Local database", "Minna no Nihongo")
+                        val buttonText = remember{mutableStateOf(buttonTextList[0])}
+                        Button(onClick = { expanded = !expanded }) {
+                            Text(buttonText.value)
+                        }
+                        DropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Local database") },
+                                onClick = {
+                                    args.value[1] = "Local"
+                                    buttonText.value = buttonTextList[0]
+                                    expanded = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Minna no Nihongo") },
+                                onClick = {
+                                    args.value[1] = "Minna"
+                                    buttonText.value = buttonTextList[1]
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+
+                    Text("Test by enter")
+                    var checkTypeOfTest by remember { mutableStateOf(false) }
+
+                    Checkbox(checkTypeOfTest, onCheckedChange = {checkTypeOfTest = it}, enabled = true)
+
+                    Row(verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        modifier = Modifier
+                            .fillMaxWidth()){
+                        TextButton(onClick = {testingSettingsDialog.value = false}) {
+                            Text("Close")
+                        }
+
+                        TextButton(onClick = {
+                            testingSettingsDialog.value = false
+                            if(checkTypeOfTest)
+                                args.value[0] = "Text"
+                            else
+                                args.value[0] = "Card"
+                            navController.navigate(TestingScreen.route)
+                            currentScreen = TestingScreen
+                            composableScope.launch { drawerState.close() }
+                        }) {
+                            Text("Confirm")
+                        }
+                    }
+                }
+
+            }
+
+        }
+    }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet{
+                Text(
+                    stringResource(id = R.string.app_name),
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(16.dp))
+                HorizontalDivider()
+                NavigationDrawerItem(
+                    label = { Text(text = stringResource(id = R.string.menu_main_name)) },
+                    selected = false,
+                    onClick = { navController.navigate(MainScreen.route)
+                        currentScreen = MainScreen
+                        composableScope.launch { drawerState.close() }
+                    }
+                )
+                NavigationDrawerItem(
+                    label = { Text(text = stringResource(id = R.string.menu_testing_name)) },
+                    selected = false,
+                    onClick = {
+                        composableScope.launch { drawerState.close() }
+                        testingSettingsDialog.value = true
+                    }
+                )
+                NavigationDrawerItem(
+                    label = { Text(text = stringResource(id = R.string.menu_db_name)) },
+                    selected = false,
+                    onClick = { navController.navigate(DBScreen.route)
+                        currentScreen = DBScreen
+                        composableScope.launch { drawerState.close() }
+                    }
+                )
+                // ...other drawer items
+            }
+        }
+    ) {
+        Surface (color = MaterialTheme.colorScheme.surface) {
+            NavHost(navController = navController, startDestination = MainScreen.route) {
+                composable (route = MainScreen.route ) {
+                    com.shikanoko.study.screens.MainScreen()
+                }
+                composable (route = TestingScreen.route ) {
+                    com.shikanoko.study.screens.TestingScreen(navController, args.value)
+                }
+                composable (route = DBScreen.route) {
+                    com.shikanoko.study.screens.DBScreen()
+                }
+            }
+        }
+    }
+}

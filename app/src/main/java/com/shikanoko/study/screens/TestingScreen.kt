@@ -168,7 +168,10 @@ fun TestByCards(navController: NavController, source: String){
     var wordsList by remember {
         mutableStateOf<MutableList<Word>>(mutableListOf())
     }
-    var wordsForButtons by remember {
+    var wordsForUI by remember {
+        mutableStateOf<MutableList<Word>>(mutableListOf())
+    }
+    var currentWords by remember {
         mutableStateOf<MutableList<Word>>(mutableListOf())
     }
     var testTextColor by remember { mutableStateOf(Color.White) }
@@ -185,7 +188,8 @@ fun TestByCards(navController: NavController, source: String){
                 wordsList = wordDao.getAllWords().toMutableList()
             wordsList.shuffle()
             currentTestingWord = wordsList[0]
-            wordsForButtons = wordsList.toMutableList()
+            wordsForUI = wordsList.toMutableList()
+            currentWords = wordsList.take(6) as MutableList<Word>
         }
     }
 
@@ -201,13 +205,14 @@ fun TestByCards(navController: NavController, source: String){
                 if (wordsList.isEmpty()) {
                     return@launch navController.navigate(com.shikanoko.study.MainScreen.route)
                 }
+                wordsList.remove(currentTestingWord)
 
                 currentTestingWord = wordsList.random()
-                wordsForButtons.shuffle()
+                wordsForUI.shuffle()
+                currentWords = wordsForUI.take(6) as MutableList<Word>
 
-                if(!wordsForButtons.contains(currentTestingWord))
-                    wordsForButtons[Random.nextInt(0, 5)] = currentTestingWord
-                wordsList.remove(currentTestingWord)
+                if(!currentWords.contains(currentTestingWord))
+                    currentWords[Random.nextInt(0, 5)] = currentTestingWord
             }
             else {
                 Toast.makeText(context, "Wrong. Answer: ${currentTestingWord.meaning}", Toast.LENGTH_SHORT).show()
@@ -217,10 +222,11 @@ fun TestByCards(navController: NavController, source: String){
                 testTextColor = Color.White
 
                 currentTestingWord = wordsList.random()
-                wordsForButtons.shuffle()
+                wordsForUI.shuffle()
+                currentWords = wordsForUI.take(6) as MutableList<Word>
 
-                if(!wordsForButtons.contains(currentTestingWord))
-                    wordsForButtons[Random.nextInt(0, 5)] = currentTestingWord
+                if(!currentWords.contains(currentTestingWord))
+                    currentWords[Random.nextInt(0, 5)] = currentTestingWord
             }
         }
     }
@@ -241,9 +247,9 @@ fun TestByCards(navController: NavController, source: String){
                 .fillMaxHeight(0.5f)
         ){
 
-            if (wordsForButtons.size != 0) {
-                KanaColumn(0.5f, wordsForButtons.subList(0, 3), onKanaButtonClick)
-                KanaColumn(1f, wordsForButtons.subList(3, 6), onKanaButtonClick)
+            if (wordsForUI.size != 0) {
+                KanaColumn(0.5f, currentWords.take(3) as MutableList<Word>, onKanaButtonClick)
+                KanaColumn(1f, currentWords.takeLast(3) as MutableList<Word>, onKanaButtonClick)
             }
         }
     }
