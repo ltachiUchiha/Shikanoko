@@ -19,6 +19,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +36,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.shikanoko.study.R
+import com.shikanoko.study.data.TestType
+import com.shikanoko.study.data.TestingSettings
+import com.shikanoko.study.data.WordsSource
 import com.shikanoko.study.repositories.NihongoXMLRepository
 import com.shikanoko.study.repositories.Word
 import com.shikanoko.study.repositories.getDaoInstance
@@ -43,13 +47,13 @@ import kotlinx.coroutines.launch
 import kotlin.random.Random
 
 @Composable
-fun TestingScreen(navController: NavController, args: MutableList<String>){
+fun TestingScreen(navController: NavController, args: MutableState<TestingSettings>){
     Surface (modifier = Modifier
         .fillMaxSize(),
         color = MaterialTheme.colorScheme.surface
     ) {
-        if (args[0] == "Card")
-            TestByCards(navController, args[1])
+        if (args.value.testType == TestType.CARD)
+            TestByCards(navController, args.value.wordsSource)
         else
         {
             TestByEnter(navController = navController)
@@ -159,7 +163,7 @@ fun KanjiCard(){
 }
 
 @Composable
-fun TestByCards(navController: NavController, source: String){
+fun TestByCards(navController: NavController, source: WordsSource){
     val composableScope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -178,7 +182,7 @@ fun TestByCards(navController: NavController, source: String){
 
     LaunchedEffect(Unit){
         composableScope.launch {
-            if(source == "Minna"){
+            if(source == WordsSource.MINNA){
                 var number = 0
                 val minna = NihongoXMLRepository()
                 val nihongoWords = minna.loadData(context)
