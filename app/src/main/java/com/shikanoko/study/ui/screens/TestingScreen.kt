@@ -185,8 +185,8 @@ fun TestByCards(navController: NavController, source: WordsSource){
         composableScope.launch {
             if(source == WordsSource.MINNA){
                 var number = 0
-                val minna = MinnaXmlParser()
-                val nihongoWords = minna.loadData(context)
+                val minna = MinnaXmlParser(context.resources.getXml(R.xml.nihon))
+                val nihongoWords = minna.getAllWords()
                 nihongoWords.forEach { wordsList.add(Word(number++, it.kana, it.translation)) }
             }
             else
@@ -213,8 +213,7 @@ fun TestByCards(navController: NavController, source: WordsSource){
                 wordsList.remove(currentTestingWord)
 
                 currentTestingWord = wordsList.random()
-                wordsForUI.shuffle()
-                currentWords = wordsForUI.take(6) as MutableList<Word>
+                currentWords = MutableList(6) { wordsForUI[Random.nextInt(6)] }
 
                 if(!currentWords.contains(currentTestingWord))
                     currentWords[Random.nextInt(0, 5)] = currentTestingWord
@@ -227,8 +226,7 @@ fun TestByCards(navController: NavController, source: WordsSource){
                 testTextColor = Color.White
 
                 currentTestingWord = wordsList.random()
-                wordsForUI.shuffle()
-                currentWords = wordsForUI.take(6) as MutableList<Word>
+                currentWords = MutableList(6) { wordsForUI[Random.nextInt(6)] }
 
                 if(!currentWords.contains(currentTestingWord))
                     currentWords[Random.nextInt(0, 5)] = currentTestingWord
@@ -252,7 +250,7 @@ fun TestByCards(navController: NavController, source: WordsSource){
                 .fillMaxHeight(0.5f)
         ){
 
-            if (wordsForUI.size != 0) {
+            if (wordsForUI.isNotEmpty()) {
                 KanaColumn(0.5f, currentWords.take(3) as MutableList<Word>, onKanaButtonClick)
                 KanaColumn(1f, currentWords.takeLast(3) as MutableList<Word>, onKanaButtonClick)
             }
