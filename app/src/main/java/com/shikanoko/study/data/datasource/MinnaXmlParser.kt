@@ -1,16 +1,15 @@
-package com.shikanoko.study.repositories
+package com.shikanoko.study.data.datasource
 
 import android.content.Context
-import com.shikanoko.study.R
-import com.shikanoko.study.data.NihongoWord
+import android.content.res.XmlResourceParser
+import com.shikanoko.study.data.model.MinnaWord
 import org.xmlpull.v1.XmlPullParser
 
-// Repository for working with words from "Minna no Nihongo"
-class NihongoXMLRepository {
-    fun loadData(context: Context): MutableList<NihongoWord> {
-        val parser = context.resources.getXml(R.xml.nihon)
+// Xml parser for working with words from "Minna no Nihongo"
+class MinnaXmlParser(private val parser: XmlResourceParser) {
+    fun loadData(context: Context): MutableList<MinnaWord> {
 
-        val wordsList = mutableListOf<NihongoWord>()
+        val wordsList = mutableListOf<MinnaWord>()
 
         while (parser.next() != XmlPullParser.END_DOCUMENT) {
             if(parser.name == "row"){
@@ -22,8 +21,8 @@ class NihongoXMLRepository {
         return wordsList
     }
 
-    private fun readWord(parser: XmlPullParser): NihongoWord {
-        val word = NihongoWord()
+    private fun readWord(parser: XmlPullParser): MinnaWord {
+        val word = MinnaWord()
         while (parser.name != "row"){
             when (parser.name){
                 "Kanji" -> word.kanji = readText(parser)

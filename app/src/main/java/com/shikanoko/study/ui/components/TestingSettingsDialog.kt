@@ -1,4 +1,4 @@
-package com.shikanoko.study.components
+package com.shikanoko.study.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,9 +27,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.shikanoko.study.R
-import com.shikanoko.study.data.TestType
-import com.shikanoko.study.data.TestingSettings
-import com.shikanoko.study.data.WordsSource
+import com.shikanoko.study.data.model.TestType
+import com.shikanoko.study.data.model.TestingSettings
+import com.shikanoko.study.data.model.WordsSource
 
 @Composable
 fun TestingSettingsDialog(onDismiss: () -> Unit, onConfirm: (TestingSettings) -> Unit){

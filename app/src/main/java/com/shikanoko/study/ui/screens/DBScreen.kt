@@ -1,4 +1,4 @@
-package com.shikanoko.study.screens
+package com.shikanoko.study.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -42,8 +42,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.shikanoko.study.R
-import com.shikanoko.study.repositories.Word
-import com.shikanoko.study.repositories.getDaoInstance
+import com.shikanoko.study.data.db.Word
+import com.shikanoko.study.data.db.getDaoInstance
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)

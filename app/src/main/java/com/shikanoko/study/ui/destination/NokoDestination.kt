@@ -1,4 +1,4 @@
-package com.shikanoko.study
+package com.shikanoko.study.ui.destination
 
 interface NokoDestination {
     val route: String

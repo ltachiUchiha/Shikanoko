@@ -1,4 +1,4 @@
-package com.shikanoko.study.navigation
+package com.shikanoko.study.ui.navigation
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DrawerValue
@@ -21,12 +21,12 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.shikanoko.study.DBScreen
-import com.shikanoko.study.MainScreen
+import com.shikanoko.study.ui.destination.DBScreen
+import com.shikanoko.study.ui.destination.MainScreen
 import com.shikanoko.study.R
-import com.shikanoko.study.TestingScreen
-import com.shikanoko.study.components.TestingSettingsDialog
-import com.shikanoko.study.data.TestingSettings
+import com.shikanoko.study.ui.destination.TestingScreen
+import com.shikanoko.study.ui.components.TestingSettingsDialog
+import com.shikanoko.study.data.model.TestingSettings
 import kotlinx.coroutines.launch
 
 @Composable
@@ -84,13 +84,13 @@ fun MainNavigation(navController: NavHostController){
         Surface (color = MaterialTheme.colorScheme.surface) {
             NavHost(navController = navController, startDestination = MainScreen.route) {
                 composable (route = MainScreen.route ) {
-                    com.shikanoko.study.screens.MainScreen()
+                    com.shikanoko.study.ui.screens.MainScreen()
                 }
                 composable (route = TestingScreen.route ) {
-                    com.shikanoko.study.screens.TestingScreen(navController, testingSettings)
+                    com.shikanoko.study.ui.screens.TestingScreen(navController, testingSettings)
                 }
                 composable (route = DBScreen.route) {
-                    com.shikanoko.study.screens.DBScreen()
+                    com.shikanoko.study.ui.screens.DBScreen()
                 }
             }
         }

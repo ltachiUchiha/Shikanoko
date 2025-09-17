@@ -7,7 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.rememberNavController
-import com.shikanoko.study.navigation.MainNavigation
+import com.shikanoko.study.ui.navigation.MainNavigation
 import com.shikanoko.study.ui.theme.ShikanokoTheme
 
 

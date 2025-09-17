@@ -1,4 +1,4 @@
-package com.shikanoko.study.screens
+package com.shikanoko.study.ui.screens
 
 import android.widget.Toast
 import androidx.compose.foundation.Image
@@ -35,13 +35,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.shikanoko.study.ui.destination.MainScreen
 import com.shikanoko.study.R
-import com.shikanoko.study.data.TestType
-import com.shikanoko.study.data.TestingSettings
-import com.shikanoko.study.data.WordsSource
-import com.shikanoko.study.repositories.NihongoXMLRepository
-import com.shikanoko.study.repositories.Word
-import com.shikanoko.study.repositories.getDaoInstance
+import com.shikanoko.study.data.model.TestType
+import com.shikanoko.study.data.model.TestingSettings
+import com.shikanoko.study.data.model.WordsSource
+import com.shikanoko.study.data.datasource.MinnaXmlParser
+import com.shikanoko.study.data.db.Word
+import com.shikanoko.study.data.db.getDaoInstance
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.random.Random
@@ -112,7 +113,7 @@ private fun TestByEnter(navController: NavController){
                     if (wordsList.isNotEmpty())
                         currentTestingWord = wordsList.random()
                     else
-                        navController.navigate(com.shikanoko.study.MainScreen.route)
+                        navController.navigate(MainScreen.route)
                 }
                 wordsList.remove(currentTestingWord)
             }
@@ -184,7 +185,7 @@ fun TestByCards(navController: NavController, source: WordsSource){
         composableScope.launch {
             if(source == WordsSource.MINNA){
                 var number = 0
-                val minna = NihongoXMLRepository()
+                val minna = MinnaXmlParser()
                 val nihongoWords = minna.loadData(context)
                 nihongoWords.forEach { wordsList.add(Word(number++, it.kana, it.translation)) }
             }
@@ -207,7 +208,7 @@ fun TestByCards(navController: NavController, source: WordsSource){
                 testTextColor = Color.White
 
                 if (wordsList.isEmpty()) {
-                    return@launch navController.navigate(com.shikanoko.study.MainScreen.route)
+                    return@launch navController.navigate(MainScreen.route)
                 }
                 wordsList.remove(currentTestingWord)
 

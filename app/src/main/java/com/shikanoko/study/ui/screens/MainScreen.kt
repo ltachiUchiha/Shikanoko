@@ -1,4 +1,4 @@
-package com.shikanoko.study.screens
+package com.shikanoko.study.ui.screens
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
