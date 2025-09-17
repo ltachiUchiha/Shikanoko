@@ -35,7 +35,7 @@ import com.shikanoko.study.data.model.WordsSource
 fun TestingSettingsDialog(onDismiss: () -> Unit, onConfirm: (TestingSettings) -> Unit){
     val testingSettings = remember { mutableStateOf(TestingSettings()) }
     Dialog(
-        onDismissRequest = { onDismiss }) {
+        onDismissRequest = { onDismiss() }) {
         Card (modifier = Modifier.fillMaxWidth()
             .fillMaxHeight(0.5f)
             .padding(16.dp),
@@ -96,7 +96,7 @@ fun TestingSettingsDialog(onDismiss: () -> Unit, onConfirm: (TestingSettings) ->
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     modifier = Modifier
                         .fillMaxWidth()){
-                    TextButton(onClick = { onDismiss }) {
+                    TextButton(onClick = { onDismiss() }) {
                         Text("Close")
                     }
 

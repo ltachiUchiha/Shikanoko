@@ -1,13 +1,13 @@
 package com.shikanoko.study.data.datasource
 
-import android.content.Context
+
 import android.content.res.XmlResourceParser
 import com.shikanoko.study.data.model.MinnaWord
 import org.xmlpull.v1.XmlPullParser
 
 // Xml parser for working with words from "Minna no Nihongo"
 class MinnaXmlParser(private val parser: XmlResourceParser) {
-    fun loadData(context: Context): MutableList<MinnaWord> {
+    fun getAllWords(): MutableList<MinnaWord> {
 
         val wordsList = mutableListOf<MinnaWord>()
 

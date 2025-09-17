@@ -40,7 +40,8 @@ fun MainNavigation(navController: NavHostController){
     val openSettingsDialog = remember { mutableStateOf(false) }
 
     if(openSettingsDialog.value){
-        TestingSettingsDialog( { openSettingsDialog.value = false}, {it ->
+        TestingSettingsDialog( { openSettingsDialog.value = false },
+            { it ->
             testingSettings.value = it
             openSettingsDialog.value = false
             navController.navigate(TestingScreen.route)
