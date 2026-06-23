@@ -164,7 +164,7 @@ private fun TestByEnter(navController: NavController, settings: TestingSettings)
                     delay(FEEDBACK_MS)
                     reveal = false
                     userValue = ""
-                    if (correct) wordsList.remove(currentTestingWord)
+                    if (correct || !settings.retryWrongAnswers) wordsList.remove(currentTestingWord)
                     if (wordsList.isEmpty()) {
                         finishTest(
                             context, startTime, totalWords, totalAttempts, correctAttempts,
@@ -389,7 +389,7 @@ fun TestByCards(navController: NavController, settings: TestingSettings){
                 delay(FEEDBACK_MS)
                 reveal = false
                 selectedAnswer = null
-                if (correct) wordsList.remove(currentTestingWord)
+                if (correct || !settings.retryWrongAnswers) wordsList.remove(currentTestingWord)
                 if (wordsList.isEmpty()) {
                     finishTest(
                         context, startTime, totalWords, totalAttempts, correctAttempts,

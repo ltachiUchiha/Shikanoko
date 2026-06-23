@@ -1,27 +1,33 @@
 package com.shikanoko.study.ui.components
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -29,13 +35,14 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.shikanoko.study.R
 import com.shikanoko.study.data.datasource.MinnaCsvParser
 import com.shikanoko.study.data.model.MinnaLanguage
@@ -45,14 +52,18 @@ import com.shikanoko.study.data.model.WordsSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+// Lesson numbers up to this value belong to "Minna I"; the rest to "Minna II".
+private const val MINNA_I_LAST_LESSON = 25
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TestingSettingsDialog(onDismiss: () -> Unit, onConfirm: (TestingSettings) -> Unit){
+fun TestingSettingsDialog(onDismiss: () -> Unit, onConfirm: (TestingSettings) -> Unit) {
     val context = LocalContext.current
 
     var selectedSource by remember { mutableStateOf(WordsSource.MINNA) }
+    var selectedTestType by remember { mutableStateOf(TestType.CARD) }
     var selectedLanguage by remember { mutableStateOf(MinnaLanguage.fromLocale(context)) }
-    var checkTypeOfTest by remember { mutableStateOf(false) }
+    var retryWrongAnswers by remember { mutableStateOf(true) }
     val selectedLessons = remember { mutableStateListOf<Int>() }
     val availableLessons = remember { mutableStateListOf<Int>() }
 
@@ -65,149 +76,228 @@ fun TestingSettingsDialog(onDismiss: () -> Unit, onConfirm: (TestingSettings) ->
         availableLessons.addAll(lessons)
     }
 
-    Dialog(onDismissRequest = { onDismiss() }) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.85f)
-                .padding(16.dp),
-            shape = RoundedCornerShape(16.dp),
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.surface
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.settings_name_popup),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                )
-
-                // Words source
-                Text(stringResource(R.string.settings_words_source))
-                var expanded by remember { mutableStateOf(false) }
-                Box(modifier = Modifier.padding(vertical = 8.dp)) {
-                    val buttonText = when (selectedSource) {
-                        WordsSource.LOCAL -> stringResource(R.string.settings_source_local)
-                        WordsSource.MINNA -> stringResource(R.string.settings_source_minna)
-                    }
-                    Button(onClick = { expanded = !expanded }) {
-                        Text(buttonText)
-                    }
-                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.settings_source_minna)) },
-                            onClick = { selectedSource = WordsSource.MINNA; expanded = false }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.settings_source_local)) },
-                            onClick = { selectedSource = WordsSource.LOCAL; expanded = false }
-                        )
-                    }
-                }
-
-                if (selectedSource == WordsSource.MINNA) {
-                    // Translation language
-                    Text(stringResource(R.string.settings_language))
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    ) {
-                        FilterChip(
-                            selected = selectedLanguage == MinnaLanguage.EN,
-                            onClick = { selectedLanguage = MinnaLanguage.EN },
-                            label = { Text(stringResource(R.string.settings_lang_en)) }
-                        )
-                        FilterChip(
-                            selected = selectedLanguage == MinnaLanguage.RU,
-                            onClick = { selectedLanguage = MinnaLanguage.RU },
-                            label = { Text(stringResource(R.string.settings_lang_ru)) }
-                        )
-                    }
-
-                    // Lessons
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(stringResource(R.string.settings_lessons))
-                        Row {
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = { Text(stringResource(R.string.settings_name_popup)) },
+                        navigationIcon = {
+                            IconButton(onClick = onDismiss) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = stringResource(R.string.dialog_close)
+                                )
+                            }
+                        },
+                        actions = {
                             TextButton(onClick = {
-                                selectedLessons.clear()
-                                selectedLessons.addAll(availableLessons)
-                            }) { Text(stringResource(R.string.settings_select_all)) }
-                            TextButton(onClick = { selectedLessons.clear() }) {
-                                Text(stringResource(R.string.settings_clear))
-                            }
-                        }
-                    }
-                    LazyColumn(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
-                    ) {
-                        items(items = availableLessons) { lesson ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        if (selectedLessons.contains(lesson)) selectedLessons.remove(lesson)
-                                        else selectedLessons.add(lesson)
-                                    }
-                            ) {
-                                Checkbox(
-                                    checked = selectedLessons.contains(lesson),
-                                    onCheckedChange = null
+                                onConfirm(
+                                    TestingSettings(
+                                        wordsSource = selectedSource,
+                                        testType = selectedTestType,
+                                        language = selectedLanguage,
+                                        lessons = selectedLessons.toSet(),
+                                        retryWrongAnswers = retryWrongAnswers
+                                    )
                                 )
-                                Text(
-                                    text = stringResource(R.string.settings_lesson_n, lesson),
-                                    modifier = Modifier.padding(start = 8.dp)
-                                )
+                            }) {
+                                Text(stringResource(R.string.settings_start))
                             }
-                        }
-                    }
-                } else {
-                    Spacer(Modifier.weight(1f))
-                }
-
-                // Test type
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(top = 8.dp)
-                ) {
-                    Checkbox(checked = checkTypeOfTest, onCheckedChange = { checkTypeOfTest = it })
-                    Text(
-                        text = stringResource(R.string.settings_test_by_enter),
-                        modifier = Modifier.padding(start = 8.dp)
+                        },
+                        // The dialog window already insets content below the status bar.
+                        windowInsets = WindowInsets(0, 0, 0, 0)
                     )
                 }
-
-                Row(
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    modifier = Modifier.fillMaxWidth()
+            ) { innerPadding ->
+                Column(
+                    modifier = Modifier
+                        .padding(innerPadding)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
-                    TextButton(onClick = { onDismiss() }) {
-                        Text(stringResource(R.string.dialog_close))
+                    // Words source
+                    SettingSection(stringResource(R.string.settings_words_source)) {
+                        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                            SegmentedButton(
+                                selected = selectedSource == WordsSource.MINNA,
+                                onClick = { selectedSource = WordsSource.MINNA },
+                                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                            ) { Text(stringResource(R.string.settings_source_minna)) }
+                            SegmentedButton(
+                                selected = selectedSource == WordsSource.LOCAL,
+                                onClick = { selectedSource = WordsSource.LOCAL },
+                                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                            ) { Text(stringResource(R.string.settings_source_local)) }
+                        }
                     }
-                    TextButton(onClick = {
-                        val testType = if (checkTypeOfTest) TestType.TEXT else TestType.CARD
-                        onConfirm(
-                            TestingSettings(
-                                wordsSource = selectedSource,
-                                testType = testType,
-                                language = selectedLanguage,
-                                lessons = selectedLessons.toSet()
+
+                    // Test type
+                    SettingSection(stringResource(R.string.settings_test_type)) {
+                        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                            SegmentedButton(
+                                selected = selectedTestType == TestType.CARD,
+                                onClick = { selectedTestType = TestType.CARD },
+                                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                            ) { Text(stringResource(R.string.settings_test_cards)) }
+                            SegmentedButton(
+                                selected = selectedTestType == TestType.TEXT,
+                                onClick = { selectedTestType = TestType.TEXT },
+                                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                            ) { Text(stringResource(R.string.settings_test_text)) }
+                        }
+                    }
+
+                    // Repeat wrong answers
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.settings_retry_wrong),
+                                style = MaterialTheme.typography.bodyLarge
                             )
+                            Text(
+                                text = stringResource(R.string.settings_retry_wrong_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = retryWrongAnswers,
+                            onCheckedChange = { retryWrongAnswers = it }
                         )
-                    }) {
-                        Text(stringResource(R.string.dialog_confirm))
+                    }
+
+                    if (selectedSource == WordsSource.MINNA) {
+                        // Translation language
+                        SettingSection(stringResource(R.string.settings_language)) {
+                            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                                SegmentedButton(
+                                    selected = selectedLanguage == MinnaLanguage.EN,
+                                    onClick = { selectedLanguage = MinnaLanguage.EN },
+                                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                                ) { Text(stringResource(R.string.settings_lang_en)) }
+                                SegmentedButton(
+                                    selected = selectedLanguage == MinnaLanguage.RU,
+                                    onClick = { selectedLanguage = MinnaLanguage.RU },
+                                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                                ) { Text(stringResource(R.string.settings_lang_ru)) }
+                            }
+                        }
+
+                        // Lessons
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.settings_lessons),
+                                style = MaterialTheme.typography.titleSmall,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = if (selectedLessons.isEmpty())
+                                    stringResource(R.string.settings_lessons_all)
+                                else
+                                    stringResource(R.string.settings_lessons_selected, selectedLessons.size),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+
+                        LessonGroup(
+                            groupName = stringResource(R.string.settings_group_minna1),
+                            lessons = availableLessons.filter { it <= MINNA_I_LAST_LESSON },
+                            selectedLessons = selectedLessons
+                        )
+                        LessonGroup(
+                            groupName = stringResource(R.string.settings_group_minna2),
+                            lessons = availableLessons.filter { it > MINNA_I_LAST_LESSON },
+                            selectedLessons = selectedLessons
+                        )
                     }
                 }
+            }
+        }
+    }
+}
+
+// A labelled block: small section title above its control.
+@Composable
+private fun SettingSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 16.dp)
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        content()
+    }
+}
+
+// One lesson group (e.g. "Minna I"): a header with its number range and per-group
+// All/Clear actions, then a wrapping grid of selectable lesson-number chips.
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun LessonGroup(
+    groupName: String,
+    lessons: List<Int>,
+    selectedLessons: SnapshotStateList<Int>
+) {
+    if (lessons.isEmpty()) return
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 16.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = groupName, style = MaterialTheme.typography.titleSmall)
+                Text(
+                    text = stringResource(R.string.settings_lessons_range, lessons.first(), lessons.last()),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            TextButton(onClick = {
+                lessons.forEach { if (it !in selectedLessons) selectedLessons.add(it) }
+            }) { Text(stringResource(R.string.settings_select_all)) }
+            TextButton(onClick = {
+                selectedLessons.removeAll(lessons)
+            }) { Text(stringResource(R.string.settings_clear)) }
+        }
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            lessons.forEach { lesson ->
+                FilterChip(
+                    selected = lesson in selectedLessons,
+                    onClick = {
+                        if (lesson in selectedLessons) selectedLessons.remove(lesson)
+                        else selectedLessons.add(lesson)
+                    },
+                    label = { Text(lesson.toString()) }
+                )
             }
         }
     }

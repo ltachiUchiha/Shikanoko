@@ -28,6 +28,17 @@
     <string name="settings_select_all">All</string>
     <string name="settings_clear">Clear</string>
     <string name="settings_lesson_n">Lesson %1$d</string>
+    <string name="settings_start">Start</string>
+    <string name="settings_test_type">Test type</string>
+    <string name="settings_test_cards">Cards</string>
+    <string name="settings_test_text">Text input</string>
+    <string name="settings_retry_wrong">Repeat wrong answers</string>
+    <string name="settings_retry_wrong_desc">Re-ask a word until you get it right</string>
+    <string name="settings_lessons_all">All</string>
+    <string name="settings_lessons_selected">%1$d selected</string>
+    <string name="settings_group_minna1">Minna I</string>
+    <string name="settings_group_minna2">Minna II</string>
+    <string name="settings_lessons_range">%1$d–%2$d</string>
     <string name="testing_progress">%1$d/%2$d</string>
     <string name="cd_timer">Elapsed time</string>
     <string name="summary_title">Test complete</string>

@@ -28,6 +28,17 @@
     <string name="settings_select_all">Все</string>
     <string name="settings_clear">Очистить</string>
     <string name="settings_lesson_n">Урок %1$d</string>
+    <string name="settings_start">Начать</string>
+    <string name="settings_test_type">Тип теста</string>
+    <string name="settings_test_cards">Карточки</string>
+    <string name="settings_test_text">Ввод текста</string>
+    <string name="settings_retry_wrong">Повторять неверные</string>
+    <string name="settings_retry_wrong_desc">Повторять слово, пока не ответите верно</string>
+    <string name="settings_lessons_all">Все</string>
+    <string name="settings_lessons_selected">Выбрано: %1$d</string>
+    <string name="settings_group_minna1">Minna I</string>
+    <string name="settings_group_minna2">Minna II</string>
+    <string name="settings_lessons_range">%1$d–%2$d</string>
     <string name="testing_progress">%1$d/%2$d</string>
     <string name="cd_timer">Прошедшее время</string>
     <string name="summary_title">Тест завершён</string>
