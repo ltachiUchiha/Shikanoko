@@ -16,3 +16,11 @@ object DBScreen : NokoDestination {
     override val route = "DBScreen"
 }
 
+object MinnaScreen : NokoDestination {
+    override val route = "MinnaScreen"
+}
+
+object StatisticsScreen : NokoDestination {
+    override val route = "StatisticsScreen"
+}
+

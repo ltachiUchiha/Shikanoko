@@ -1,8 +1,10 @@
 package com.shikanoko.study.data.model
 
-// Data class for words from "Minna no Nihongo"
+// A single word from "Minna no Nihongo", parsed from the bundled CSV.
+// `translation` holds only the currently selected language (see MinnaLanguage).
 data class MinnaWord(
-    var kanji: String = "",
-    var kana: String = "",
-    var translation: String = ""
+    val lesson: Int = 0,
+    val kanji: String = "",
+    val kana: String = "",
+    val translation: String = ""
 )

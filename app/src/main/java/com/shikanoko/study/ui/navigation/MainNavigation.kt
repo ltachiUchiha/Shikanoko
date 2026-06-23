@@ -24,6 +24,8 @@ import androidx.navigation.compose.composable
 import com.shikanoko.study.ui.destination.DBScreen
 import com.shikanoko.study.ui.destination.MainScreen
 import com.shikanoko.study.R
+import com.shikanoko.study.ui.destination.MinnaScreen
+import com.shikanoko.study.ui.destination.StatisticsScreen
 import com.shikanoko.study.ui.destination.TestingScreen
 import com.shikanoko.study.ui.components.TestingSettingsDialog
 import com.shikanoko.study.data.model.TestingSettings
@@ -72,6 +74,20 @@ fun MainNavigation(navController: NavHostController){
                     }
                 )
                 NavigationDrawerItem(
+                    label = { Text(text = stringResource(id = R.string.menu_vocab_name)) },
+                    selected = false,
+                    onClick = { navController.navigate(MinnaScreen.route)
+                        composableScope.launch { drawerState.close() }
+                    }
+                )
+                NavigationDrawerItem(
+                    label = { Text(text = stringResource(id = R.string.menu_stats_name)) },
+                    selected = false,
+                    onClick = { navController.navigate(StatisticsScreen.route)
+                        composableScope.launch { drawerState.close() }
+                    }
+                )
+                NavigationDrawerItem(
                     label = { Text(text = stringResource(id = R.string.menu_db_name)) },
                     selected = false,
                     onClick = { navController.navigate(DBScreen.route)
@@ -92,6 +108,12 @@ fun MainNavigation(navController: NavHostController){
                 }
                 composable (route = DBScreen.route) {
                     com.shikanoko.study.ui.screens.DBScreen()
+                }
+                composable (route = MinnaScreen.route) {
+                    com.shikanoko.study.ui.screens.MinnaScreen()
+                }
+                composable (route = StatisticsScreen.route) {
+                    com.shikanoko.study.ui.screens.StatisticsScreen()
                 }
             }
         }
