@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -43,9 +44,10 @@ import com.shikanoko.study.data.model.WordsSource
 import com.shikanoko.study.data.datasource.MinnaXmlParser
 import com.shikanoko.study.data.db.Word
 import com.shikanoko.study.data.db.getDaoInstance
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.random.Random
+import kotlinx.coroutines.withContext
 
 @Composable
 fun TestingScreen(navController: NavController, args: MutableState<TestingSettings>){
@@ -69,12 +71,22 @@ private fun TestByEnter(navController: NavController){
     val padding = 8.dp
     val wordDao = getDaoInstance(LocalContext.current)
 
-    var wordsList by remember {
-        mutableStateOf<MutableList<Word>>(mutableListOf())
-    }
+    val wordsList = remember { mutableStateListOf<Word>() }
     var currentTestingWord by remember { mutableStateOf(Word(word = "", meaning = "")) }
     var userValue by remember { mutableStateOf("") }
     var testTextColor by remember { mutableStateOf(Color.White) }
+
+    LaunchedEffect(Unit){
+        val loaded = withContext(Dispatchers.IO) { wordDao.getAllWords() }
+        if (loaded.isEmpty()) {
+            Toast.makeText(context, R.string.testing_no_words, Toast.LENGTH_SHORT).show()
+            navController.popBackStack(MainScreen.route, false)
+            return@LaunchedEffect
+        }
+        wordsList.clear()
+        wordsList.addAll(loaded)
+        currentTestingWord = wordsList.random()
+    }
 
     Column (
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -82,14 +94,6 @@ private fun TestByEnter(navController: NavController){
         modifier = Modifier
             .padding(top = 40.dp)
             .padding(padding)) {
-
-        LaunchedEffect(Unit){
-            composableScope.launch {
-                wordsList = wordDao.getAllWords().toMutableList()
-                wordsList.shuffle()
-                currentTestingWord = wordsList.random()
-            }
-        }
 
         Text(text = currentTestingWord.word, fontSize = 30.sp, color = testTextColor)
 
@@ -104,28 +108,25 @@ private fun TestByEnter(navController: NavController){
         Spacer(Modifier.size(padding))
 
         Button(onClick = {
-            if(checkAnswer(currentTestingWord, userValue)){
-                composableScope.launch {
-                    Toast.makeText(context, "Good", Toast.LENGTH_SHORT).show()
+            val correct = checkAnswer(currentTestingWord, userValue)
+            composableScope.launch {
+                if (correct) {
+                    Toast.makeText(context, R.string.testing_correct, Toast.LENGTH_SHORT).show()
                     testTextColor = Color.Green
-                    delay(2000)
-                    testTextColor = Color.White
-                    if (wordsList.isNotEmpty())
-                        currentTestingWord = wordsList.random()
-                    else
-                        navController.navigate(MainScreen.route)
-                }
-                wordsList.remove(currentTestingWord)
-            }
-            else {
-                composableScope.launch {
-                    Toast.makeText(context, "Bad", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, R.string.testing_incorrect, Toast.LENGTH_SHORT).show()
                     testTextColor = Color.Red
-                    delay(2000)
-                    testTextColor = Color.White
-                    currentTestingWord = wordsList.random()
                 }
-
+                delay(2000)
+                testTextColor = Color.White
+                if (correct) {
+                    wordsList.remove(currentTestingWord)
+                }
+                if (wordsList.isEmpty()) {
+                    navController.popBackStack(MainScreen.route, false)
+                    return@launch
+                }
+                currentTestingWord = wordsList.random()
             }
             userValue = ""
 
@@ -163,6 +164,17 @@ fun KanjiCard(){
     }
 }
 
+// Number of answer buttons shown in the card test (2 columns of up to 3).
+private const val CARD_OPTION_COUNT = 6
+
+// Builds the answer choices: the correct word plus distinct random distractors
+// drawn from the whole pool, shuffled. Returns up to [count] options (fewer if
+// the pool is smaller), and always includes [correct].
+private fun buildOptions(pool: List<Word>, correct: Word, count: Int = CARD_OPTION_COUNT): List<Word> {
+    val distractors = pool.filter { it != correct }.shuffled().take(count - 1)
+    return (distractors + correct).shuffled()
+}
+
 @Composable
 fun TestByCards(navController: NavController, source: WordsSource){
     val composableScope = rememberCoroutineScope()
@@ -170,67 +182,60 @@ fun TestByCards(navController: NavController, source: WordsSource){
 
     val wordDao = getDaoInstance(LocalContext.current)
     var currentTestingWord by remember { mutableStateOf(Word(word = "", meaning = ""))}
-    var wordsList by remember {
-        mutableStateOf<MutableList<Word>>(mutableListOf())
-    }
-    var wordsForUI by remember {
-        mutableStateOf<MutableList<Word>>(mutableListOf())
-    }
-    var currentWords by remember {
-        mutableStateOf<MutableList<Word>>(mutableListOf())
-    }
+    val wordsList = remember { mutableStateListOf<Word>() }
+    val wordsForUI = remember { mutableStateListOf<Word>() }
+    var currentWords by remember { mutableStateOf<List<Word>>(emptyList()) }
     var testTextColor by remember { mutableStateOf(Color.White) }
 
     LaunchedEffect(Unit){
-        composableScope.launch {
-            if(source == WordsSource.MINNA){
+        val loaded = withContext(Dispatchers.IO) {
+            if (source == WordsSource.MINNA) {
                 var number = 0
                 val minna = MinnaXmlParser(context.resources.getXml(R.xml.nihon))
-                val nihongoWords = minna.getAllWords()
-                nihongoWords.forEach { wordsList.add(Word(number++, it.kana, it.translation)) }
+                minna.getAllWords().map { Word(number++, it.kana, it.translation) }
+            } else {
+                wordDao.getAllWords()
             }
-            else
-                wordsList = wordDao.getAllWords().toMutableList()
-            wordsList.shuffle()
-            currentTestingWord = wordsList[0]
-            wordsForUI = wordsList.toMutableList()
-            currentWords = wordsList.take(6) as MutableList<Word>
         }
+        if (loaded.isEmpty()) {
+            Toast.makeText(context, R.string.testing_no_words, Toast.LENGTH_SHORT).show()
+            navController.popBackStack(MainScreen.route, false)
+            return@LaunchedEffect
+        }
+        wordsForUI.clear()
+        wordsForUI.addAll(loaded)
+        wordsList.clear()
+        wordsList.addAll(loaded.shuffled())
+        currentTestingWord = wordsList.first()
+        currentWords = buildOptions(wordsForUI, currentTestingWord)
     }
 
     val onKanaButtonClick: (String) -> Unit = { userValue ->
         composableScope.launch {
-            if(checkAnswer(currentTestingWord, userValue)){
-                Toast.makeText(context, "Good", Toast.LENGTH_SHORT).show()
-
+            val correct = checkAnswer(currentTestingWord, userValue)
+            if (correct) {
+                Toast.makeText(context, R.string.testing_correct, Toast.LENGTH_SHORT).show()
                 testTextColor = Color.Green
-                delay(2000)
-                testTextColor = Color.White
-
-                if (wordsList.isEmpty()) {
-                    return@launch navController.navigate(MainScreen.route)
-                }
-                wordsList.remove(currentTestingWord)
-
-                currentTestingWord = wordsList.random()
-                currentWords = MutableList(6) { wordsForUI[Random.nextInt(6)] }
-
-                if(!currentWords.contains(currentTestingWord))
-                    currentWords[Random.nextInt(0, 5)] = currentTestingWord
-            }
-            else {
-                Toast.makeText(context, "Wrong. Answer: ${currentTestingWord.meaning}", Toast.LENGTH_SHORT).show()
-
+            } else {
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.testing_wrong_answer, currentTestingWord.meaning),
+                    Toast.LENGTH_SHORT
+                ).show()
                 testTextColor = Color.Red
-                delay(2000)
-                testTextColor = Color.White
-
-                currentTestingWord = wordsList.random()
-                currentWords = MutableList(6) { wordsForUI[Random.nextInt(6)] }
-
-                if(!currentWords.contains(currentTestingWord))
-                    currentWords[Random.nextInt(0, 5)] = currentTestingWord
             }
+            delay(2000)
+            testTextColor = Color.White
+
+            if (correct) {
+                wordsList.remove(currentTestingWord)
+            }
+            if (wordsList.isEmpty()) {
+                navController.popBackStack(MainScreen.route, false)
+                return@launch
+            }
+            currentTestingWord = wordsList.random()
+            currentWords = buildOptions(wordsForUI, currentTestingWord)
         }
     }
 
@@ -250,9 +255,9 @@ fun TestByCards(navController: NavController, source: WordsSource){
                 .fillMaxHeight(0.5f)
         ){
 
-            if (wordsForUI.isNotEmpty()) {
-                KanaColumn(0.5f, currentWords.take(3) as MutableList<Word>, onKanaButtonClick)
-                KanaColumn(1f, currentWords.takeLast(3) as MutableList<Word>, onKanaButtonClick)
+            if (currentWords.isNotEmpty()) {
+                KanaColumn(0.5f, currentWords.take(3), onKanaButtonClick)
+                KanaColumn(1f, currentWords.drop(3), onKanaButtonClick)
             }
         }
     }
@@ -260,7 +265,7 @@ fun TestByCards(navController: NavController, source: WordsSource){
 }
 
 @Composable
-fun KanaColumn(fraction: Float, words: MutableList<Word>, onKanaButtonClick: (String) -> Unit){
+fun KanaColumn(fraction: Float, words: List<Word>, onKanaButtonClick: (String) -> Unit){
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceEvenly,
@@ -268,9 +273,9 @@ fun KanaColumn(fraction: Float, words: MutableList<Word>, onKanaButtonClick: (St
             .fillMaxWidth(fraction)
             .fillMaxHeight(1f)
     ){
-        KanaElement(word = words[0], onKanaButtonClick)
-        KanaElement(word = words[1], onKanaButtonClick)
-        KanaElement(word = words[2], onKanaButtonClick)
+        words.forEach { word ->
+            KanaElement(word = word, onKanaButtonClick)
+        }
     }
 }
 

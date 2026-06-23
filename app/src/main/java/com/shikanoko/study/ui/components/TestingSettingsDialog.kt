@@ -33,7 +33,8 @@ import com.shikanoko.study.data.model.WordsSource
 
 @Composable
 fun TestingSettingsDialog(onDismiss: () -> Unit, onConfirm: (TestingSettings) -> Unit){
-    val testingSettings = remember { mutableStateOf(TestingSettings()) }
+    var selectedSource by remember { mutableStateOf(WordsSource.LOCAL) }
+    var checkTypeOfTest by remember { mutableStateOf(false) }
     Dialog(
         onDismissRequest = { onDismiss() }) {
         Card (modifier = Modifier.fillMaxWidth()
@@ -53,42 +54,41 @@ fun TestingSettingsDialog(onDismiss: () -> Unit, onConfirm: (TestingSettings) ->
                     .padding(8.dp)
                     .fillMaxHeight()){
 
-                Text("Words source")
+                Text(stringResource(R.string.settings_words_source))
                 var expanded by remember { mutableStateOf(false) }
                 Box(
                     modifier = Modifier
                         .padding(16.dp)
                 ) {
-                    val buttonTextList = listOf("Local database", "Minna no Nihongo")
-                    val buttonText = remember{mutableStateOf(buttonTextList[0])}
+                    val buttonText = when (selectedSource) {
+                        WordsSource.LOCAL -> stringResource(R.string.settings_source_local)
+                        WordsSource.MINNA -> stringResource(R.string.settings_source_minna)
+                    }
                     Button(onClick = { expanded = !expanded }) {
-                        Text(buttonText.value)
+                        Text(buttonText)
                     }
                     DropdownMenu(
                         expanded = expanded,
                         onDismissRequest = { expanded = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Local database") },
+                            text = { Text(stringResource(R.string.settings_source_local)) },
                             onClick = {
-                                testingSettings.value.wordsSource = WordsSource.LOCAL
-                                buttonText.value = buttonTextList[0]
+                                selectedSource = WordsSource.LOCAL
                                 expanded = false
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("Minna no Nihongo") },
+                            text = { Text(stringResource(R.string.settings_source_minna)) },
                             onClick = {
-                                testingSettings.value.wordsSource = WordsSource.MINNA
-                                buttonText.value = buttonTextList[1]
+                                selectedSource = WordsSource.MINNA
                                 expanded = false
                             }
                         )
                     }
                 }
 
-                Text("Test by enter")
-                var checkTypeOfTest by remember { mutableStateOf(false) }
+                Text(stringResource(R.string.settings_test_by_enter))
 
                 Checkbox(checkTypeOfTest, onCheckedChange = {checkTypeOfTest = it}, enabled = true)
 
@@ -97,18 +97,15 @@ fun TestingSettingsDialog(onDismiss: () -> Unit, onConfirm: (TestingSettings) ->
                     modifier = Modifier
                         .fillMaxWidth()){
                     TextButton(onClick = { onDismiss() }) {
-                        Text("Close")
+                        Text(stringResource(R.string.dialog_close))
                     }
 
                     TextButton(onClick = {
-                        when(checkTypeOfTest){
-                            true -> { testingSettings.value.testType = TestType.CARD }
-                            false -> { testingSettings.value.testType = TestType.TEXT }
-                        }
-                        onConfirm(testingSettings.value)
+                        val testType = if (checkTypeOfTest) TestType.TEXT else TestType.CARD
+                        onConfirm(TestingSettings(selectedSource, testType))
                     }) {
 
-                        Text("Confirm")
+                        Text(stringResource(R.string.dialog_confirm))
                     }
                 }
             }

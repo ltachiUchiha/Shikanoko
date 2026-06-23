@@ -28,8 +28,6 @@ class MinnaXmlParser(private val parser: XmlResourceParser) {
                 "Kanji" -> word.kanji = readText(parser)
                 "Kana" -> word.kana = readText(parser)
                 "Translation" -> word.translation = readText(parser)
-                "Lesson" -> word.lesson = readText(parser).toInt()
-                "Add" -> word.add = readText(parser).lowercase().toBoolean()
             }
             parser.next()
         }

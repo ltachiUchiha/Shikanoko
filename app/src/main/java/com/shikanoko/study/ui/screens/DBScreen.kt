@@ -27,9 +27,8 @@ import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -55,7 +54,8 @@ fun DBScreen () {
     ) {
         val composableScope = rememberCoroutineScope()
         val wordDao = getDaoInstance(LocalContext.current)
-        val words = remember { mutableStateListOf<Word>() }
+        // Backed by a Room Flow: inserts/deletes refresh the list automatically.
+        val words by wordDao.observeAll().collectAsState(initial = emptyList())
         val padding = 8.dp
         Column (
             Modifier
@@ -91,8 +91,6 @@ fun DBScreen () {
                     wordDao.insertWord(Word(word = word, meaning = meaning))
                     word = ""
                     meaning = ""
-                    words.clear()
-                    words.addAll(wordDao.getAllWords())
                 }
             }) {
                 Text(stringResource(id = R.string.db_add_button))
@@ -101,15 +99,11 @@ fun DBScreen () {
             Button(onClick = {
                 composableScope.launch {
                     wordDao.deleteAllWords()
-                    words.clear()
                 }
             }) {
-                Text("Delete all words")
+                Text(stringResource(id = R.string.db_delete_all_button))
             }
             Spacer(Modifier.size(padding))
-            LaunchedEffect(Unit) {
-                words.addAll(wordDao.getAllWords())
-            }
 
             LazyColumn (modifier = Modifier.fillMaxHeight()){
 
@@ -117,11 +111,8 @@ fun DBScreen () {
                     val dismissState = rememberSwipeToDismissBoxState(
                         confirmValueChange = { state ->
                             if(state == SwipeToDismissBoxValue.EndToStart){
-                                words.remove(it)
                                 composableScope.launch {
                                     wordDao.deleteWord(it)
-                                    words.clear()
-                                    words.addAll(wordDao.getAllWords())
                                 }
                                 true
                             }

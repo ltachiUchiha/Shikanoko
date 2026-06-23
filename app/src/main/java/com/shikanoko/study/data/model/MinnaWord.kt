@@ -4,7 +4,5 @@ package com.shikanoko.study.data.model
 data class MinnaWord(
     var kanji: String = "",
     var kana: String = "",
-    var translation: String = "",
-    var lesson: Int = 0,
-    var add: Boolean = false
+    var translation: String = ""
 )

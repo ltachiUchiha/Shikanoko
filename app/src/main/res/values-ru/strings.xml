@@ -9,4 +9,15 @@
     <string name="db_add_button">Добавить слово</string>
     <string name="testing_check_btn">Проверить ответ</string>
     <string name="settings_name_popup">Настройки тестирования</string>
+    <string name="settings_words_source">Источник слов</string>
+    <string name="settings_source_local">Локальная база</string>
+    <string name="settings_source_minna">Minna no Nihongo</string>
+    <string name="settings_test_by_enter">Тест вводом</string>
+    <string name="dialog_close">Закрыть</string>
+    <string name="dialog_confirm">Подтвердить</string>
+    <string name="db_delete_all_button">Удалить все слова</string>
+    <string name="testing_correct">Верно</string>
+    <string name="testing_incorrect">Неверно</string>
+    <string name="testing_wrong_answer">Неверно. Ответ: %1$s</string>
+    <string name="testing_no_words">Нет слов для теста</string>
 </resources>

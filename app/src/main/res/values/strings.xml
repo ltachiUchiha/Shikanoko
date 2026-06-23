@@ -8,4 +8,15 @@
     <string name="db_add_button">Add a word</string>
     <string name="testing_check_btn">Check the answer</string>
     <string name="settings_name_popup">Testing settings</string>
+    <string name="settings_words_source">Words source</string>
+    <string name="settings_source_local">Local database</string>
+    <string name="settings_source_minna">Minna no Nihongo</string>
+    <string name="settings_test_by_enter">Test by enter</string>
+    <string name="dialog_close">Close</string>
+    <string name="dialog_confirm">Confirm</string>
+    <string name="db_delete_all_button">Delete all words</string>
+    <string name="testing_correct">Good</string>
+    <string name="testing_incorrect">Bad</string>
+    <string name="testing_wrong_answer">Wrong. Answer: %1$s</string>
+    <string name="testing_no_words">No words to test</string>
 </resources>

@@ -12,7 +12,10 @@ import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Update
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
 
 @Entity
 data class Word(
@@ -36,6 +39,9 @@ interface NokoDao {
     @Query("SELECT * FROM word")
     suspend fun getAllWords(): List<Word>
 
+    @Query("SELECT * FROM word")
+    fun observeAll(): Flow<List<Word>>
+
     @Query("DELETE FROM word")
     suspend fun deleteAllWords()
 }
@@ -45,24 +51,28 @@ abstract class NokoDatabase : RoomDatabase() {
     abstract fun nokoDao(): NokoDao
 }
 
+@Volatile
 private var wordDao: NokoDao? = null
-fun getDaoInstance(context: Context): NokoDao {
-    if (wordDao == null){
-        val db = Room.databaseBuilder(context, NokoDatabase::class.java, "noko-db")
-            .build()
-        wordDao = db.nokoDao()
-        runBlocking {
-            /*
-            wordDao!!.insertWord(Word(word = "すき", meaning = "любимый"))
-            wordDao!!.insertWord(Word(word = "りょうり", meaning = "блюдо"))
-            wordDao!!.insertWord(Word(word = "ものもの", meaning = "напиток"))
-            wordDao!!.insertWord(Word(word = "かたかな", meaning = "катакана"))
-            wordDao!!.insertWord(Word(word = "ひらがな", meaning = "хирагана"))
-            wordDao!!.insertWord(Word(word = "かんじ", meaning = "иероглиф"))
-             */
-        }
+private val daoLock = Any()
 
-        return wordDao as NokoDao
+fun getDaoInstance(context: Context): NokoDao {
+    // Double-checked locking: safe to call from multiple coroutines/threads.
+    return wordDao ?: synchronized(daoLock) {
+        wordDao ?: Room.databaseBuilder(
+            context.applicationContext,
+            NokoDatabase::class.java,
+            "noko-db"
+        ).build().nokoDao().also { dao ->
+            wordDao = dao
+            // To seed development data, do it off the main thread, e.g.:
+             CoroutineScope(Dispatchers.IO).launch {
+                 dao.insertWord(Word(word = "すき", meaning = "любимый"))
+                 dao.insertWord(Word(word = "りょうり", meaning = "блюдо"))
+                 dao.insertWord(Word(word = "ものもの", meaning = "напиток"))
+                 dao.insertWord(Word(word = "かたかな", meaning = "катакана"))
+                 dao.insertWord(Word(word = "ひらがな", meaning = "хирагана"))
+                 dao.insertWord(Word(word = "かんじ", meaning = "иероглиф"))
+             }
+        }
     }
-    return wordDao as NokoDao
 }
