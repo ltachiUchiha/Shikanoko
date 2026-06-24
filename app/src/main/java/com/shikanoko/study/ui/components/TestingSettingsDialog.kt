@@ -45,6 +45,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.shikanoko.study.R
 import com.shikanoko.study.data.datasource.MinnaCsvParser
+import com.shikanoko.study.data.model.Direction
 import com.shikanoko.study.data.model.MinnaLanguage
 import com.shikanoko.study.data.model.TestType
 import com.shikanoko.study.data.model.TestingSettings
@@ -57,7 +58,13 @@ private const val MINNA_I_LAST_LESSON = 25
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TestingSettingsDialog(onDismiss: () -> Unit, onConfirm: (TestingSettings) -> Unit) {
+fun TestingSettingsDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (TestingSettings) -> Unit,
+    // The Review flow drills separate recall directions; the practice flow does not, so the
+    // direction picker (and the practice-only "repeat wrong answers" toggle) are swapped per mode.
+    showDirections: Boolean = false
+) {
     val context = LocalContext.current
 
     var selectedSource by remember { mutableStateOf(WordsSource.MINNA) }
@@ -66,6 +73,10 @@ fun TestingSettingsDialog(onDismiss: () -> Unit, onConfirm: (TestingSettings) ->
     var retryWrongAnswers by remember { mutableStateOf(true) }
     val selectedLessons = remember { mutableStateListOf<Int>() }
     val availableLessons = remember { mutableStateListOf<Int>() }
+    val selectedDirections = remember {
+        mutableStateListOf(Direction.JP_TO_MEANING, Direction.MEANING_TO_JP)
+    }
+    var showKana by remember { mutableStateOf(false) }
 
     // Lessons are the same set across languages; load once.
     LaunchedEffect(Unit) {
@@ -104,7 +115,9 @@ fun TestingSettingsDialog(onDismiss: () -> Unit, onConfirm: (TestingSettings) ->
                                         testType = selectedTestType,
                                         language = selectedLanguage,
                                         lessons = selectedLessons.toSet(),
-                                        retryWrongAnswers = retryWrongAnswers
+                                        retryWrongAnswers = retryWrongAnswers,
+                                        directions = selectedDirections.toSet(),
+                                        showKana = showKana
                                     )
                                 )
                             }) {
@@ -154,28 +167,56 @@ fun TestingSettingsDialog(onDismiss: () -> Unit, onConfirm: (TestingSettings) ->
                         }
                     }
 
-                    // Repeat wrong answers
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp)
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.settings_retry_wrong),
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                            Text(
-                                text = stringResource(R.string.settings_retry_wrong_desc),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                    if (showDirections) {
+                        // Recall directions (Review only): each drills the word independently.
+                        DirectionSection(selectedDirections)
+                        // Show hiragana instead of kanji (Review only): applies to Meaning -> JP.
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 16.dp)
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.settings_show_kana),
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                                Text(
+                                    text = stringResource(R.string.settings_show_kana_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = showKana,
+                                onCheckedChange = { showKana = it }
                             )
                         }
-                        Switch(
-                            checked = retryWrongAnswers,
-                            onCheckedChange = { retryWrongAnswers = it }
-                        )
+                    } else {
+                        // Repeat wrong answers (practice only)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 16.dp)
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.settings_retry_wrong),
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                                Text(
+                                    text = stringResource(R.string.settings_retry_wrong_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = retryWrongAnswers,
+                                onCheckedChange = { retryWrongAnswers = it }
+                            )
+                        }
                     }
 
                     if (selectedSource == WordsSource.MINNA) {
@@ -232,6 +273,34 @@ fun TestingSettingsDialog(onDismiss: () -> Unit, onConfirm: (TestingSettings) ->
             }
         }
     }
+}
+
+// Multi-select recall directions for the Review flow. Each selected direction becomes its own
+// independently-scheduled card per word.
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DirectionSection(selected: SnapshotStateList<Direction>) {
+    SettingSection(stringResource(R.string.settings_directions)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            DirectionChip(Direction.JP_TO_MEANING, R.string.settings_dir_jp_meaning, selected)
+            DirectionChip(Direction.MEANING_TO_JP, R.string.settings_dir_meaning_jp, selected)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DirectionChip(direction: Direction, labelRes: Int, selected: SnapshotStateList<Direction>) {
+    FilterChip(
+        selected = direction in selected,
+        onClick = {
+            if (direction in selected) selected.remove(direction) else selected.add(direction)
+        },
+        label = { Text(stringResource(labelRes)) }
+    )
 }
 
 // A labelled block: small section title above its control.

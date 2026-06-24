@@ -1,10 +1,14 @@
 package com.shikanoko.study.data
 
 import android.content.Context
+import com.shikanoko.study.data.db.Card
 import com.shikanoko.study.data.db.TestSession
 import com.shikanoko.study.data.db.WordStat
 import com.shikanoko.study.data.db.getDaoInstance
+import com.shikanoko.study.data.model.Direction
 import com.shikanoko.study.data.model.StudyWord
+import java.text.DateFormat
+import java.util.Date
 import kotlin.math.roundToInt
 
 // Aggregated view shown on the Statistics screen.
@@ -16,9 +20,21 @@ data class StatisticsData(
     val totalCorrect: Int
 )
 
+// Everything the per-word detail screen shows: the accuracy stat plus the SRS card (null when the
+// word has never been reviewed, so it has no schedule yet).
+data class WordStatDetail(
+    val stat: WordStat,
+    val card: Card?
+)
+
 // Records one answer attempt for a word. Blocking (DB) — call on Dispatchers.IO.
 suspend fun recordAnswer(context: Context, word: StudyWord, correct: Boolean) {
+    // No stable key means we can't attribute the answer to a word (e.g. a placeholder); skip it
+    // rather than collapse everything into one blank-keyed row.
+    if (word.wordKey.isBlank()) return
     getDaoInstance(context).recordAnswer(
+        wordKey = word.wordKey,
+        direction = word.direction,
         prompt = word.prompt,
         answer = word.answer,
         correctInc = if (correct) 1 else 0,
@@ -59,6 +75,14 @@ suspend fun loadStatistics(context: Context): StatisticsData {
     )
 }
 
+// Loads the accuracy stat + SRS card for one word/direction, or null if the word was never tested.
+// Blocking — call on Dispatchers.IO.
+suspend fun loadWordDetail(context: Context, wordKey: String, direction: Direction): WordStatDetail? {
+    val dao = getDaoInstance(context)
+    val stat = dao.getStat(wordKey, direction) ?: return null
+    return WordStatDetail(stat, dao.getCard(wordKey, direction))
+}
+
 // Clears all recorded statistics. Blocking — call on Dispatchers.IO.
 suspend fun resetStatistics(context: Context) {
     val dao = getDaoInstance(context)
@@ -80,3 +104,7 @@ fun formatElapsed(seconds: Long): String {
 // Correct-answer percentage, rounded to the nearest whole percent (0 when nothing seen).
 fun accuracyPercent(correct: Int, seen: Int): Int =
     if (seen <= 0) 0 else ((correct * 100.0) / seen).roundToInt()
+
+// Medium-style localized date for an epoch-millis instant (e.g. "Jun 25, 2026"); blank for unset.
+fun formatDate(millis: Long): String =
+    if (millis <= 0L) "" else DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(millis))

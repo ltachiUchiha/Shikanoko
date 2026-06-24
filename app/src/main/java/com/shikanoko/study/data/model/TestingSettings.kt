@@ -8,5 +8,11 @@ data class TestingSettings (
     val lessons: Set<Int> = emptySet(),
     // When true, a word stays in the pool until answered correctly (re-asked on a wrong
     // answer). When false, every word is shown once regardless of correctness.
-    val retryWrongAnswers: Boolean = true
+    val retryWrongAnswers: Boolean = true,
+    // Recall directions for the SRS Review flow. Ignored by the practice test (which is always
+    // JP_TO_MEANING). Empty is treated as JP_TO_MEANING by the loader.
+    val directions: Set<Direction> = setOf(Direction.JP_TO_MEANING, Direction.MEANING_TO_JP),
+    // Review only: start with the hiragana reading shown instead of kanji for Meaning -> JP cards.
+    // The Review screen also exposes a live toggle seeded from this value.
+    val showKana: Boolean = false
     )

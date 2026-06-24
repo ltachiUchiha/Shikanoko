@@ -25,9 +25,12 @@ import com.shikanoko.study.ui.destination.DBScreen
 import com.shikanoko.study.ui.destination.MainScreen
 import com.shikanoko.study.R
 import com.shikanoko.study.ui.destination.MinnaScreen
+import com.shikanoko.study.ui.destination.ReviewScreen
+import com.shikanoko.study.ui.destination.StatisticsDetailScreen
 import com.shikanoko.study.ui.destination.StatisticsScreen
 import com.shikanoko.study.ui.destination.TestingScreen
 import com.shikanoko.study.ui.components.TestingSettingsDialog
+import com.shikanoko.study.data.db.WordStat
 import com.shikanoko.study.data.model.TestingSettings
 import kotlinx.coroutines.launch
 
@@ -40,14 +43,23 @@ fun MainNavigation(navController: NavHostController){
     val drawerState = rememberDrawerState(DrawerValue.Closed)
 
     val openSettingsDialog = remember { mutableStateOf(false) }
+    // The destination the settings dialog confirms into: practice testing or SRS review. Drives both
+    // the navigation target and whether the dialog shows the (review-only) direction picker.
+    val settingsTarget = remember { mutableStateOf(TestingScreen.route) }
+
+    // The word whose detail screen is showing; set when a Statistics row is tapped.
+    val selectedStat = remember { mutableStateOf<WordStat?>(null) }
 
     if(openSettingsDialog.value){
-        TestingSettingsDialog( { openSettingsDialog.value = false },
-            { it ->
-            testingSettings.value = it
-            openSettingsDialog.value = false
-            navController.navigate(TestingScreen.route)
-        })
+        TestingSettingsDialog(
+            onDismiss = { openSettingsDialog.value = false },
+            onConfirm = { it ->
+                testingSettings.value = it
+                openSettingsDialog.value = false
+                navController.navigate(settingsTarget.value)
+            },
+            showDirections = settingsTarget.value == ReviewScreen.route
+        )
     }
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -70,6 +82,16 @@ fun MainNavigation(navController: NavHostController){
                     selected = false,
                     onClick = {
                         composableScope.launch { drawerState.close() }
+                        settingsTarget.value = TestingScreen.route
+                        openSettingsDialog.value = true
+                    }
+                )
+                NavigationDrawerItem(
+                    label = { Text(text = stringResource(id = R.string.menu_review_name)) },
+                    selected = false,
+                    onClick = {
+                        composableScope.launch { drawerState.close() }
+                        settingsTarget.value = ReviewScreen.route
                         openSettingsDialog.value = true
                     }
                 )
@@ -106,6 +128,9 @@ fun MainNavigation(navController: NavHostController){
                 composable (route = TestingScreen.route ) {
                     com.shikanoko.study.ui.screens.TestingScreen(navController, testingSettings)
                 }
+                composable (route = ReviewScreen.route ) {
+                    com.shikanoko.study.ui.screens.ReviewScreen(navController, testingSettings)
+                }
                 composable (route = DBScreen.route) {
                     com.shikanoko.study.ui.screens.DBScreen()
                 }
@@ -113,7 +138,22 @@ fun MainNavigation(navController: NavHostController){
                     com.shikanoko.study.ui.screens.MinnaScreen()
                 }
                 composable (route = StatisticsScreen.route) {
-                    com.shikanoko.study.ui.screens.StatisticsScreen()
+                    com.shikanoko.study.ui.screens.StatisticsScreen(
+                        onWordClick = { stat ->
+                            selectedStat.value = stat
+                            navController.navigate(StatisticsDetailScreen.route)
+                        }
+                    )
+                }
+                composable (route = StatisticsDetailScreen.route) {
+                    // selectedStat is always set before navigating here; the null guard just avoids a
+                    // blank screen if the back stack is restored without it.
+                    selectedStat.value?.let { stat ->
+                        com.shikanoko.study.ui.screens.WordStatDetailScreen(
+                            stat = stat,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
                 }
             }
         }

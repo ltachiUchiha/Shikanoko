@@ -1,5 +1,6 @@
 package com.shikanoko.study.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.shikanoko.study.R
 import com.shikanoko.study.data.StatisticsData
 import com.shikanoko.study.data.accuracyPercent
+import com.shikanoko.study.data.db.WordStat
 import com.shikanoko.study.data.formatElapsed
 import com.shikanoko.study.data.loadStatistics
 import com.shikanoko.study.data.resetStatistics
@@ -42,9 +44,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 // Persistent statistics: cumulative totals on top, per-word accuracy (weakest first) below.
+// Tapping a word opens its detail screen via [onWordClick].
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StatisticsScreen() {
+fun StatisticsScreen(onWordClick: (WordStat) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var stats by remember { mutableStateOf<StatisticsData?>(null) }
@@ -113,6 +116,8 @@ fun StatisticsScreen() {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(items = data.perWord) { word ->
                         ListItem(
+                            modifier = Modifier.clickable { onWordClick(word) },
+                            overlineContent = { Text(stringResource(directionLabelRes(word.direction))) },
                             headlineContent = { Text(word.prompt) },
                             supportingContent = { Text(word.answer) },
                             trailingContent = {
