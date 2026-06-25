@@ -69,6 +69,25 @@ suspend fun buildReviewSession(
     return ReviewSession(queue, pools)
 }
 
+// The upcoming session's real composition: new cards plus cards already due for review. Shown on
+// the Review entry screen so the number the user sees matches the test they'll start.
+data class ReviewPreview(val newCount: Int, val dueCount: Int) {
+    val total: Int get() = newCount + dueCount
+}
+
+// Previews the next session without committing anything: builds the same queue buildReviewSession
+// would, then counts new vs. due-review cards. Counts match the test exactly (same builder, same
+// daily-limit accounting). Blocking (assets / DB) — call on Dispatchers.IO.
+suspend fun previewReviewSession(
+    context: Context,
+    settings: TestingSettings,
+    ignoreDailyLimit: Boolean = false
+): ReviewPreview {
+    val queue = buildReviewSession(context, settings, ignoreDailyLimit).queue
+    val newCount = queue.count { it.isNew }
+    return ReviewPreview(newCount = newCount, dueCount = queue.size - newCount)
+}
+
 // Total distinct source words in the Review scope (Minna lessons 1..upToLesson, or all local
 // words). Drives the daily/total ratio and day estimate on the Review intro. Blocking — call on
 // Dispatchers.IO.

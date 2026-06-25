@@ -20,6 +20,9 @@
     <string name="testing_no_words">No words to test</string>
     <string name="menu_vocab_name">Vocabulary</string>
     <string name="menu_stats_name">Statistics</string>
+    <string name="menu_settings_name">Settings</string>
+    <string name="settings_save">Save</string>
+    <string name="settings_saved">Saved</string>
     <string name="settings_language">Translation language</string>
     <string name="settings_lang_en">EN</string>
     <string name="settings_lang_ru">RU</string>
@@ -56,9 +59,11 @@
     <string name="settings_dir_jp_meaning">JP → meaning</string>
     <string name="settings_dir_meaning_jp">Meaning → JP</string>
     <string name="review_nothing_due">Nothing to review</string>
-    <string name="review_today_title">Today</string>
-    <string name="review_today_new">New words: %1$d / %2$d</string>
-    <string name="review_today_reviews">Reviews: %1$d</string>
+    <string name="review_session_title">This session</string>
+    <string name="review_session_new">New words: %1$d</string>
+    <string name="review_session_reviews">Reviews: %1$d</string>
+    <string name="review_session_total">Total: %1$d</string>
+    <string name="review_session_loading">Calculating…</string>
     <string name="review_start">Start review</string>
     <string name="review_study_more">Study more</string>
     <string name="review_study_more_desc">Another batch, ignoring today\'s daily limit</string>

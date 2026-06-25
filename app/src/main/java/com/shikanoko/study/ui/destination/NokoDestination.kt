@@ -32,3 +32,7 @@ object StatisticsDetailScreen : NokoDestination {
     override val route = "StatisticsDetailScreen"
 }
 
+object SettingsScreen : NokoDestination {
+    override val route = "SettingsScreen"
+}
+

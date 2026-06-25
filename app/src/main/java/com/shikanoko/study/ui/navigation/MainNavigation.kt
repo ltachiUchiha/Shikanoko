@@ -26,6 +26,7 @@ import com.shikanoko.study.ui.destination.MainScreen
 import com.shikanoko.study.R
 import com.shikanoko.study.ui.destination.MinnaScreen
 import com.shikanoko.study.ui.destination.ReviewScreen
+import com.shikanoko.study.ui.destination.SettingsScreen
 import com.shikanoko.study.ui.destination.StatisticsDetailScreen
 import com.shikanoko.study.ui.destination.StatisticsScreen
 import com.shikanoko.study.ui.destination.TestingScreen
@@ -46,6 +47,8 @@ fun MainNavigation(navController: NavHostController){
     // The destination the settings dialog confirms into: practice testing or SRS review. Drives both
     // the navigation target and whether the dialog shows the (review-only) direction picker.
     val settingsTarget = remember { mutableStateOf(TestingScreen.route) }
+    // Review "study more" path: when true, ReviewScreen ignores today's daily limit for a fresh batch.
+    val reviewIgnoreLimit = remember { mutableStateOf(false) }
 
     // The word whose detail screen is showing; set when a Statistics row is tapped.
     val selectedStat = remember { mutableStateOf<WordStat?>(null) }
@@ -53,10 +56,17 @@ fun MainNavigation(navController: NavHostController){
     if(openSettingsDialog.value){
         TestingSettingsDialog(
             onDismiss = { openSettingsDialog.value = false },
-            onConfirm = { it ->
-                testingSettings.value = it
+            onConfirm = { settings ->
+                testingSettings.value = settings
+                reviewIgnoreLimit.value = false
                 openSettingsDialog.value = false
                 navController.navigate(settingsTarget.value)
+            },
+            onStudyMore = { settings ->
+                testingSettings.value = settings
+                reviewIgnoreLimit.value = true
+                openSettingsDialog.value = false
+                navController.navigate(ReviewScreen.route)
             },
             showDirections = settingsTarget.value == ReviewScreen.route
         )
@@ -116,6 +126,13 @@ fun MainNavigation(navController: NavHostController){
                         composableScope.launch { drawerState.close() }
                     }
                 )
+                NavigationDrawerItem(
+                    label = { Text(text = stringResource(id = R.string.menu_settings_name)) },
+                    selected = false,
+                    onClick = { navController.navigate(SettingsScreen.route)
+                        composableScope.launch { drawerState.close() }
+                    }
+                )
                 // ...other drawer items
             }
         }
@@ -129,10 +146,15 @@ fun MainNavigation(navController: NavHostController){
                     com.shikanoko.study.ui.screens.TestingScreen(navController, testingSettings)
                 }
                 composable (route = ReviewScreen.route ) {
-                    com.shikanoko.study.ui.screens.ReviewScreen(navController, testingSettings)
+                    com.shikanoko.study.ui.screens.ReviewScreen(
+                        navController, testingSettings, reviewIgnoreLimit.value
+                    )
                 }
                 composable (route = DBScreen.route) {
                     com.shikanoko.study.ui.screens.DBScreen()
+                }
+                composable (route = SettingsScreen.route) {
+                    com.shikanoko.study.ui.screens.SettingsScreen()
                 }
                 composable (route = MinnaScreen.route) {
                     com.shikanoko.study.ui.screens.MinnaScreen()

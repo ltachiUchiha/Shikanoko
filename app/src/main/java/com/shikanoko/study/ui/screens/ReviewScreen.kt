@@ -4,6 +4,7 @@ import android.content.Context
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,13 +13,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -38,16 +34,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.shikanoko.study.R
 import com.shikanoko.study.data.ReviewSession
-import com.shikanoko.study.data.ReviewSettingsStore
 import com.shikanoko.study.data.accuracyPercent
 import com.shikanoko.study.data.buildReviewSession
-import com.shikanoko.study.data.countScopeWords
 import com.shikanoko.study.data.isNew
 import com.shikanoko.study.data.persistReview
 import com.shikanoko.study.data.recordAnswer
@@ -78,7 +70,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.ceil
 
 // How far ahead a still-learning card is re-inserted so it reappears later in the same session
 // (minute-scale steps only set relative order here; no real wall-clock waiting is enforced).
@@ -86,181 +77,45 @@ private const val REINSERT_GAP = 3
 
 private val scheduler = Sm2Scheduler()
 
-// The two phases of the Review flow: the intro (today's progress + start/study-more) and the actual
-// test once a session has been built.
-private enum class ReviewPhase { INTRO, RUNNING }
-
-// The SRS Review flow. Shows an intro with today's progress, then mirrors the practice
-// TestingScreen's two modes — but the pool comes from the scheduler's due-queue and every answer
-// advances the card's spaced-repetition state.
+// The SRS Review test. The pre-test intro (today's progress + start/study-more) now lives on the
+// Review entry screen (the settings dialog), so this builds the session straight away and runs it.
+// [ignoreDailyLimit] is the "study more" path: today's done-counts are treated as 0 for a fresh batch.
 @Composable
-fun ReviewScreen(navController: NavController, args: MutableState<TestingSettings>) {
+fun ReviewScreen(
+    navController: NavController,
+    args: MutableState<TestingSettings>,
+    ignoreDailyLimit: Boolean
+) {
     val settings = args.value
-    var phase by remember { mutableStateOf(ReviewPhase.INTRO) }
+    val context = LocalContext.current
     var session by remember { mutableStateOf<ReviewSession?>(null) }
+
+    // Build the session once; an empty queue means nothing is due, so report it and go back.
+    LaunchedEffect(Unit) {
+        val built = withContext(Dispatchers.IO) {
+            buildReviewSession(context, settings, ignoreDailyLimit)
+        }
+        if (built.queue.isEmpty()) {
+            Toast.makeText(context, R.string.review_nothing_due, Toast.LENGTH_SHORT).show()
+            navController.popBackStack(MainScreen.route, false)
+        } else {
+            session = built
+        }
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.surface
     ) {
-        when (phase) {
-            ReviewPhase.INTRO -> ReviewIntro(
-                settings = settings,
-                onStart = { built -> session = built; phase = ReviewPhase.RUNNING },
-                onClose = { navController.popBackStack(MainScreen.route, false) }
-            )
-            ReviewPhase.RUNNING -> {
-                val active = session
-                if (active == null) {
-                    phase = ReviewPhase.INTRO
-                } else {
-                    // Finishing or stopping returns to the intro so the user can immediately study
-                    // more, with the today's-progress counts refreshed.
-                    val backToIntro = { session = null; phase = ReviewPhase.INTRO }
-                    if (settings.testType == TestType.CARD)
-                        ReviewByCards(settings, active, backToIntro)
-                    else
-                        ReviewByEnter(settings, active, backToIntro)
-                }
+        val active = session
+        if (active == null) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
             }
-        }
-    }
-}
-
-// Pre-test screen: shows how much has been studied today and offers a normal session (capped by the
-// daily limit) or a "study more" session that ignores today's counts for another batch.
-@Composable
-private fun ReviewIntro(
-    settings: TestingSettings,
-    onStart: (ReviewSession) -> Unit,
-    onClose: () -> Unit
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-
-    var newDone by remember { mutableStateOf(0) }
-    var reviewsDone by remember { mutableStateOf(0) }
-    var building by remember { mutableStateOf(false) }
-    // Review plan: the whole scope's word count and the resulting estimate of days to cover it.
-    var totalWords by remember { mutableStateOf(0) }
-    var estimatedDays by remember { mutableStateOf(0) }
-
-    LaunchedEffect(Unit) {
-        // Reading the counters runs a midnight rollover (a prefs write); do it off the main thread.
-        val (n, r) = withContext(Dispatchers.IO) {
-            val counters = DailyCounters(context)
-            counters.newDoneToday to counters.reviewsDoneToday
-        }
-        newDone = n
-        reviewsDone = r
-
-        // Count the scope's words, then estimate how many days the daily pace needs to cover them.
-        val total = withContext(Dispatchers.IO) { countScopeWords(context, settings) }
-        val daily = settings.maxNewPerDay.coerceAtLeast(1)
-        val days = if (total > 0) ceil(total.toDouble() / daily).toInt() else 0
-        totalWords = total
-        estimatedDays = days
-        // Persist the estimate so the planned day-count survives restarts.
-        withContext(Dispatchers.IO) { ReviewSettingsStore(context).targetDays = days }
-    }
-
-    fun begin(ignoreDailyLimit: Boolean) {
-        if (building) return
-        building = true
-        scope.launch {
-            val built = withContext(Dispatchers.IO) {
-                buildReviewSession(context, settings, ignoreDailyLimit)
-            }
-            building = false
-            if (built.queue.isEmpty()) {
-                Toast.makeText(context, R.string.review_nothing_due, Toast.LENGTH_SHORT).show()
-            } else {
-                onStart(built)
-            }
-        }
-    }
-
-    BackHandler { onClose() }
-
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 40.dp)
-            .padding(16.dp)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            IconButton(onClick = onClose) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = stringResource(R.string.dialog_close)
-                )
-            }
-            Text(
-                text = stringResource(R.string.menu_review_name),
-                style = MaterialTheme.typography.titleLarge
-            )
-        }
-        Spacer(Modifier.size(24.dp))
-
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = stringResource(R.string.review_today_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.size(8.dp))
-                Text(stringResource(R.string.review_today_new, newDone, settings.maxNewPerDay))
-                Text(stringResource(R.string.review_today_reviews, reviewsDone))
-            }
-        }
-
-        if (totalWords > 0) {
-            Spacer(Modifier.size(16.dp))
-            val daily = settings.maxNewPerDay
-            val percentText = String.format("%.1f%%", daily * 100.0 / totalWords)
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = stringResource(R.string.review_plan_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(Modifier.size(8.dp))
-                    Text(stringResource(R.string.review_plan_daily, daily, totalWords, percentText))
-                    Text(stringResource(R.string.review_plan_days, estimatedDays))
-                }
-            }
-        }
-        Spacer(Modifier.size(24.dp))
-
-        if (building) {
-            CircularProgressIndicator()
+        } else if (settings.testType == TestType.CARD) {
+            ReviewByCards(settings, active) { navController.popBackStack(MainScreen.route, false) }
         } else {
-            Button(
-                onClick = { begin(ignoreDailyLimit = false) },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(stringResource(R.string.review_start))
-            }
-            Spacer(Modifier.size(8.dp))
-            OutlinedButton(
-                onClick = { begin(ignoreDailyLimit = true) },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(stringResource(R.string.review_study_more))
-            }
-            Text(
-                text = stringResource(R.string.review_study_more_desc),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 4.dp)
-            )
+            ReviewByEnter(settings, active) { navController.popBackStack(MainScreen.route, false) }
         }
     }
 }

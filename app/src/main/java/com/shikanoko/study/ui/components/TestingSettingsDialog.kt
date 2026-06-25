@@ -6,22 +6,24 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -43,7 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -55,28 +57,29 @@ import com.shikanoko.study.data.model.MinnaLanguage
 import com.shikanoko.study.data.model.TestType
 import com.shikanoko.study.data.model.TestingSettings
 import com.shikanoko.study.data.model.WordsSource
+import com.shikanoko.study.data.previewReviewSession
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 // Lesson numbers up to this value belong to "Minna I"; the rest to "Minna II".
 private const val MINNA_I_LAST_LESSON = 25
 
-// Bounds and step for the review-only "new words per day" stepper.
-private const val MIN_NEW_PER_DAY = 5
-private const val MAX_NEW_PER_DAY = 50
-private const val NEW_PER_DAY_STEP = 5
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TestingSettingsDialog(
     onDismiss: () -> Unit,
+    // Practice: confirm the test. Review: start a normal session (capped by the daily limit).
     onConfirm: (TestingSettings) -> Unit,
+    // Review only: start an extra batch ignoring today's daily limit ("study more").
+    onStudyMore: (TestingSettings) -> Unit = {},
     // The Review flow drills separate recall directions; the practice flow does not, so the
     // direction picker (and the practice-only "repeat wrong answers" toggle) are swapped per mode.
+    // In review mode the daily pace + lesson scope live on the Settings screen, so this dialog shows
+    // today's progress and the Start/Study-more buttons instead, and reads the scope from the store.
     showDirections: Boolean = false
 ) {
     val context = LocalContext.current
-    // Review settings persist across launches; the practice flow doesn't use this store.
+    // Review pace + scope are configured on the Settings screen; here we only read them.
     val reviewStore = remember { ReviewSettingsStore(context) }
 
     var selectedSource by remember { mutableStateOf(WordsSource.MINNA) }
@@ -89,12 +92,16 @@ fun TestingSettingsDialog(
         mutableStateListOf(Direction.JP_TO_MEANING, Direction.MEANING_TO_JP)
     }
     var showKana by remember { mutableStateOf(false) }
+    // Review scope/pace come from the persisted store (set on the Settings screen).
     var maxNewPerDay by remember { mutableStateOf(TestingSettings().maxNewPerDay) }
-    // Review only: highest lesson the user knows; review covers lessons 1..upToLesson.
     var upToLesson by remember { mutableStateOf(0) }
+    // Review only: the upcoming session's real composition (new + due reviews), so the count shown
+    // matches the test. Null until the preview finishes its first computation.
+    var sessionNew by remember { mutableStateOf<Int?>(null) }
+    var sessionDue by remember { mutableStateOf(0) }
 
-    // Lessons are the same set across languages; load once. In review mode also seed the persisted
-    // up-to-lesson and daily-pace values (defaulting "up to" to the last lesson — i.e. everything).
+    // Lessons are the same set across languages; load once. In review mode also pull the persisted
+    // scope/pace that the session preview is built from.
     LaunchedEffect(Unit) {
         val (lessons, savedUpTo, savedPerDay) = withContext(Dispatchers.IO) {
             Triple(
@@ -111,6 +118,32 @@ fun TestingSettingsDialog(
         }
     }
 
+    fun currentSettings() = TestingSettings(
+        wordsSource = selectedSource,
+        testType = selectedTestType,
+        language = selectedLanguage,
+        lessons = selectedLessons.toSet(),
+        retryWrongAnswers = retryWrongAnswers,
+        directions = selectedDirections.toSet(),
+        showKana = showKana,
+        upToLesson = upToLesson,
+        maxNewPerDay = maxNewPerDay
+    )
+
+    // Recompute the session preview whenever an input that changes its size changes, so the number
+    // the user sees always matches the session Start will build. Waits for the initial load.
+    if (showDirections) {
+        LaunchedEffect(
+            selectedDirections.toList(), selectedSource, selectedLanguage, upToLesson,
+            maxNewPerDay, availableLessons.isEmpty()
+        ) {
+            if (availableLessons.isEmpty()) return@LaunchedEffect
+            val preview = withContext(Dispatchers.IO) { previewReviewSession(context, currentSettings()) }
+            sessionNew = preview.newCount
+            sessionDue = preview.dueCount
+        }
+    }
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -122,7 +155,14 @@ fun TestingSettingsDialog(
             Scaffold(
                 topBar = {
                     TopAppBar(
-                        title = { Text(stringResource(R.string.settings_name_popup)) },
+                        title = {
+                            Text(
+                                stringResource(
+                                    if (showDirections) R.string.menu_review_name
+                                    else R.string.settings_name_popup
+                                )
+                            )
+                        },
                         navigationIcon = {
                             IconButton(onClick = onDismiss) {
                                 Icon(
@@ -132,27 +172,11 @@ fun TestingSettingsDialog(
                             }
                         },
                         actions = {
-                            TextButton(onClick = {
-                                if (showDirections) {
-                                    // Remember the review scope + daily pace for next time.
-                                    reviewStore.upToLesson = upToLesson
-                                    reviewStore.maxNewPerDay = maxNewPerDay
+                            // Practice confirms from the top bar; review uses the body buttons.
+                            if (!showDirections) {
+                                TextButton(onClick = { onConfirm(currentSettings()) }) {
+                                    Text(stringResource(R.string.settings_start))
                                 }
-                                onConfirm(
-                                    TestingSettings(
-                                        wordsSource = selectedSource,
-                                        testType = selectedTestType,
-                                        language = selectedLanguage,
-                                        lessons = selectedLessons.toSet(),
-                                        retryWrongAnswers = retryWrongAnswers,
-                                        directions = selectedDirections.toSet(),
-                                        showKana = showKana,
-                                        upToLesson = upToLesson,
-                                        maxNewPerDay = maxNewPerDay
-                                    )
-                                )
-                            }) {
-                                Text(stringResource(R.string.settings_start))
                             }
                         },
                         // The dialog window already insets content below the status bar.
@@ -224,9 +248,10 @@ fun TestingSettingsDialog(
                                 onCheckedChange = { showKana = it }
                             )
                         }
-                        // New words per day (Review only): caps how many brand-new cards Review
-                        // introduces in a normal session.
-                        NewPerDaySection(maxNewPerDay) { maxNewPerDay = it }
+                        // The real size of the session Start will build: new words + reviews that
+                        // are due now. Shown so the count matches the test (daily pace + lesson
+                        // scope are configured on the Settings screen).
+                        ReviewSessionCard(sessionNew, sessionDue)
                     } else {
                         // Repeat wrong answers (practice only)
                         Row(
@@ -270,13 +295,9 @@ fun TestingSettingsDialog(
                             }
                         }
 
-                        if (showDirections) {
-                            // Review: a single "up to lesson N" scope instead of multi-select.
-                            UpToLessonSection(upToLesson, availableLessons.lastOrNull() ?: 0) {
-                                upToLesson = it
-                            }
-                        } else {
-                            // Practice: multi-select lesson chips.
+                        // Lessons (practice only): review's scope is the single "up to lesson"
+                        // setting on the Settings screen.
+                        if (!showDirections) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
@@ -310,7 +331,61 @@ fun TestingSettingsDialog(
                             )
                         }
                     }
+
+                    if (showDirections) {
+                        // Start the review right here — the separate intro screen was merged in.
+                        Spacer(Modifier.size(8.dp))
+                        Button(
+                            onClick = { onConfirm(currentSettings()) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(stringResource(R.string.review_start)) }
+                        Spacer(Modifier.size(8.dp))
+                        OutlinedButton(
+                            onClick = { onStudyMore(currentSettings()) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(stringResource(R.string.review_study_more)) }
+                        Text(
+                            text = stringResource(R.string.review_study_more_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
                 }
+            }
+        }
+    }
+}
+
+// Review-only: the upcoming session's real size — new words plus reviews that are due now, with the
+// total so it matches what the test will show. A null [newCount] means the preview is still loading.
+@Composable
+private fun ReviewSessionCard(newCount: Int?, dueCount: Int) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 16.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.review_session_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.size(8.dp))
+            if (newCount == null) {
+                Text(
+                    text = stringResource(R.string.review_session_loading),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                Text(stringResource(R.string.review_session_new, newCount))
+                Text(stringResource(R.string.review_session_reviews, dueCount))
+                Spacer(Modifier.size(4.dp))
+                Text(
+                    text = stringResource(R.string.review_session_total, newCount + dueCount),
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
@@ -342,65 +417,6 @@ private fun DirectionChip(direction: Direction, labelRes: Int, selected: Snapsho
         },
         label = { Text(stringResource(labelRes)) }
     )
-}
-
-// Review-only: the single "I know words up to lesson N" input. Review draws from lessons 1..N.
-// [maxLesson] is the highest available lesson; typed values are coerced to 1..maxLesson.
-@Composable
-private fun UpToLessonSection(value: Int, maxLesson: Int, onChange: (Int) -> Unit) {
-    SettingSection(stringResource(R.string.settings_up_to_lesson)) {
-        Text(
-            text = stringResource(R.string.settings_up_to_lesson_desc),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        OutlinedTextField(
-            value = if (value > 0) value.toString() else "",
-            onValueChange = { text ->
-                val n = text.filter(Char::isDigit).take(3).toIntOrNull() ?: 0
-                onChange(if (maxLesson > 0) n.coerceIn(0, maxLesson) else n)
-            },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            suffix = {
-                if (maxLesson > 0) Text(stringResource(R.string.settings_up_to_lesson_of, maxLesson))
-            },
-            modifier = Modifier.fillMaxWidth()
-        )
-    }
-}
-
-// Review-only stepper for how many new words to introduce per day. Adjusts by [NEW_PER_DAY_STEP]
-// within [MIN_NEW_PER_DAY]..[MAX_NEW_PER_DAY].
-@Composable
-private fun NewPerDaySection(value: Int, onChange: (Int) -> Unit) {
-    SettingSection(stringResource(R.string.settings_new_per_day)) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = stringResource(R.string.settings_new_per_day_desc),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f)
-            )
-            OutlinedButton(
-                onClick = { onChange((value - NEW_PER_DAY_STEP).coerceAtLeast(MIN_NEW_PER_DAY)) },
-                enabled = value > MIN_NEW_PER_DAY
-            ) { Text("−") }
-            Text(
-                text = value.toString(),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(horizontal = 12.dp)
-            )
-            OutlinedButton(
-                onClick = { onChange((value + NEW_PER_DAY_STEP).coerceAtMost(MAX_NEW_PER_DAY)) },
-                enabled = value < MAX_NEW_PER_DAY
-            ) { Text("+") }
-        }
-    }
 }
 
 // A labelled block: small section title above its control.

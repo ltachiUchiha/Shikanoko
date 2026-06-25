@@ -21,6 +21,9 @@
     <string name="testing_no_words">Нет слов для теста</string>
     <string name="menu_vocab_name">Словарь</string>
     <string name="menu_stats_name">Статистика</string>
+    <string name="menu_settings_name">Настройки</string>
+    <string name="settings_save">Сохранить</string>
+    <string name="settings_saved">Сохранено</string>
     <string name="settings_language">Язык перевода</string>
     <string name="settings_lang_en">EN</string>
     <string name="settings_lang_ru">RU</string>
@@ -57,9 +60,11 @@
     <string name="settings_dir_jp_meaning">Яп → перевод</string>
     <string name="settings_dir_meaning_jp">Перевод → яп</string>
     <string name="review_nothing_due">Нечего повторять</string>
-    <string name="review_today_title">Сегодня</string>
-    <string name="review_today_new">Новые слова: %1$d / %2$d</string>
-    <string name="review_today_reviews">Повторения: %1$d</string>
+    <string name="review_session_title">Эта сессия</string>
+    <string name="review_session_new">Новые слова: %1$d</string>
+    <string name="review_session_reviews">Повторения: %1$d</string>
+    <string name="review_session_total">Всего: %1$d</string>
+    <string name="review_session_loading">Подсчёт…</string>
     <string name="review_start">Начать повторение</string>
     <string name="review_study_more">Ещё повторить</string>
     <string name="review_study_more_desc">Ещё одна порция, игнорируя дневной лимит</string>
