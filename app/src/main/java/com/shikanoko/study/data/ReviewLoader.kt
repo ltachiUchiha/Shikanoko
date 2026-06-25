@@ -36,7 +36,13 @@ private const val KEY_LOOKUP_CHUNK = 500
 // Builds the review session for [settings]. Blocking (assets / DB) — call on Dispatchers.IO.
 // Expands every source word into one candidate per selected direction, attaches existing scheduler
 // state, then defers ordering + daily limits to the pure ReviewQueue builder.
-suspend fun buildReviewSession(context: Context, settings: TestingSettings): ReviewSession {
+// When [ignoreDailyLimit] is true (the "study more" path) today's done-counts are treated as 0, so
+// the user gets a fresh batch beyond the daily allotment while staying bounded by maxNewPerDay.
+suspend fun buildReviewSession(
+    context: Context,
+    settings: TestingSettings,
+    ignoreDailyLimit: Boolean = false
+): ReviewSession {
     val sources = loadSources(context, settings)
 
     // Pull existing cards for these words and index them by (wordKey, direction).
@@ -55,20 +61,35 @@ suspend fun buildReviewSession(context: Context, settings: TestingSettings): Rev
     val queue = ReviewQueue.build(
         candidates = candidates,
         now = System.currentTimeMillis(),
-        newDoneToday = counters.newDoneToday,
-        reviewsDoneToday = counters.reviewsDoneToday
+        newDoneToday = if (ignoreDailyLimit) 0 else counters.newDoneToday,
+        reviewsDoneToday = if (ignoreDailyLimit) 0 else counters.reviewsDoneToday,
+        maxNewPerDay = settings.maxNewPerDay
     )
     val pools = sources.groupBy({ it.direction }, { it.studyWord })
     return ReviewSession(queue, pools)
 }
+
+// Total distinct source words in the Review scope (Minna lessons 1..upToLesson, or all local
+// words). Drives the daily/total ratio and day estimate on the Review intro. Blocking — call on
+// Dispatchers.IO.
+suspend fun countScopeWords(context: Context, settings: TestingSettings): Int =
+    when (settings.wordsSource) {
+        WordsSource.MINNA -> {
+            val all = MinnaCsvParser.loadWords(context, settings.language)
+            if (settings.upToLesson <= 0) all.size
+            else all.count { it.lesson <= settings.upToLesson }
+        }
+        WordsSource.LOCAL -> getDaoInstance(context).getAllWords().size
+    }
 
 private suspend fun loadSources(context: Context, settings: TestingSettings): List<Source> {
     val directions = settings.directions.ifEmpty { setOf(Direction.JP_TO_MEANING) }
     return when (settings.wordsSource) {
         WordsSource.MINNA -> {
             val all = MinnaCsvParser.loadWords(context, settings.language)
-            val filtered = if (settings.lessons.isEmpty()) all
-            else all.filter { it.lesson in settings.lessons }
+            // Review covers lessons 1..upToLesson (0 means "all the user knows").
+            val filtered = if (settings.upToLesson <= 0) all
+            else all.filter { it.lesson <= settings.upToLesson }
             filtered.flatMap { w ->
                 val key = WordKey.minna(settings.language, w.lesson, w.kanji)
                 directions.map { dir -> Source(key, dir, w.toStudyWord(dir).copy(wordKey = key)) }

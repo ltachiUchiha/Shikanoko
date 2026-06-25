@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -19,6 +20,8 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -40,10 +43,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.shikanoko.study.R
+import com.shikanoko.study.data.ReviewSettingsStore
 import com.shikanoko.study.data.datasource.MinnaCsvParser
 import com.shikanoko.study.data.model.Direction
 import com.shikanoko.study.data.model.MinnaLanguage
@@ -56,6 +61,11 @@ import kotlinx.coroutines.withContext
 // Lesson numbers up to this value belong to "Minna I"; the rest to "Minna II".
 private const val MINNA_I_LAST_LESSON = 25
 
+// Bounds and step for the review-only "new words per day" stepper.
+private const val MIN_NEW_PER_DAY = 5
+private const val MAX_NEW_PER_DAY = 50
+private const val NEW_PER_DAY_STEP = 5
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TestingSettingsDialog(
@@ -66,6 +76,8 @@ fun TestingSettingsDialog(
     showDirections: Boolean = false
 ) {
     val context = LocalContext.current
+    // Review settings persist across launches; the practice flow doesn't use this store.
+    val reviewStore = remember { ReviewSettingsStore(context) }
 
     var selectedSource by remember { mutableStateOf(WordsSource.MINNA) }
     var selectedTestType by remember { mutableStateOf(TestType.CARD) }
@@ -77,14 +89,26 @@ fun TestingSettingsDialog(
         mutableStateListOf(Direction.JP_TO_MEANING, Direction.MEANING_TO_JP)
     }
     var showKana by remember { mutableStateOf(false) }
+    var maxNewPerDay by remember { mutableStateOf(TestingSettings().maxNewPerDay) }
+    // Review only: highest lesson the user knows; review covers lessons 1..upToLesson.
+    var upToLesson by remember { mutableStateOf(0) }
 
-    // Lessons are the same set across languages; load once.
+    // Lessons are the same set across languages; load once. In review mode also seed the persisted
+    // up-to-lesson and daily-pace values (defaulting "up to" to the last lesson — i.e. everything).
     LaunchedEffect(Unit) {
-        val lessons = withContext(Dispatchers.IO) {
-            MinnaCsvParser.availableLessons(context, MinnaLanguage.EN)
+        val (lessons, savedUpTo, savedPerDay) = withContext(Dispatchers.IO) {
+            Triple(
+                MinnaCsvParser.availableLessons(context, MinnaLanguage.EN),
+                reviewStore.upToLesson,
+                reviewStore.maxNewPerDay
+            )
         }
         availableLessons.clear()
         availableLessons.addAll(lessons)
+        if (showDirections) {
+            maxNewPerDay = savedPerDay
+            upToLesson = if (savedUpTo > 0) savedUpTo else (lessons.lastOrNull() ?: 0)
+        }
     }
 
     Dialog(
@@ -109,6 +133,11 @@ fun TestingSettingsDialog(
                         },
                         actions = {
                             TextButton(onClick = {
+                                if (showDirections) {
+                                    // Remember the review scope + daily pace for next time.
+                                    reviewStore.upToLesson = upToLesson
+                                    reviewStore.maxNewPerDay = maxNewPerDay
+                                }
                                 onConfirm(
                                     TestingSettings(
                                         wordsSource = selectedSource,
@@ -117,7 +146,9 @@ fun TestingSettingsDialog(
                                         lessons = selectedLessons.toSet(),
                                         retryWrongAnswers = retryWrongAnswers,
                                         directions = selectedDirections.toSet(),
-                                        showKana = showKana
+                                        showKana = showKana,
+                                        upToLesson = upToLesson,
+                                        maxNewPerDay = maxNewPerDay
                                     )
                                 )
                             }) {
@@ -193,6 +224,9 @@ fun TestingSettingsDialog(
                                 onCheckedChange = { showKana = it }
                             )
                         }
+                        // New words per day (Review only): caps how many brand-new cards Review
+                        // introduces in a normal session.
+                        NewPerDaySection(maxNewPerDay) { maxNewPerDay = it }
                     } else {
                         // Repeat wrong answers (practice only)
                         Row(
@@ -236,38 +270,45 @@ fun TestingSettingsDialog(
                             }
                         }
 
-                        // Lessons
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 8.dp)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.settings_lessons),
-                                style = MaterialTheme.typography.titleSmall,
-                                modifier = Modifier.weight(1f)
+                        if (showDirections) {
+                            // Review: a single "up to lesson N" scope instead of multi-select.
+                            UpToLessonSection(upToLesson, availableLessons.lastOrNull() ?: 0) {
+                                upToLesson = it
+                            }
+                        } else {
+                            // Practice: multi-select lesson chips.
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.settings_lessons),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = if (selectedLessons.isEmpty())
+                                        stringResource(R.string.settings_lessons_all)
+                                    else
+                                        stringResource(R.string.settings_lessons_selected, selectedLessons.size),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+
+                            LessonGroup(
+                                groupName = stringResource(R.string.settings_group_minna1),
+                                lessons = availableLessons.filter { it <= MINNA_I_LAST_LESSON },
+                                selectedLessons = selectedLessons
                             )
-                            Text(
-                                text = if (selectedLessons.isEmpty())
-                                    stringResource(R.string.settings_lessons_all)
-                                else
-                                    stringResource(R.string.settings_lessons_selected, selectedLessons.size),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary
+                            LessonGroup(
+                                groupName = stringResource(R.string.settings_group_minna2),
+                                lessons = availableLessons.filter { it > MINNA_I_LAST_LESSON },
+                                selectedLessons = selectedLessons
                             )
                         }
-
-                        LessonGroup(
-                            groupName = stringResource(R.string.settings_group_minna1),
-                            lessons = availableLessons.filter { it <= MINNA_I_LAST_LESSON },
-                            selectedLessons = selectedLessons
-                        )
-                        LessonGroup(
-                            groupName = stringResource(R.string.settings_group_minna2),
-                            lessons = availableLessons.filter { it > MINNA_I_LAST_LESSON },
-                            selectedLessons = selectedLessons
-                        )
                     }
                 }
             }
@@ -301,6 +342,65 @@ private fun DirectionChip(direction: Direction, labelRes: Int, selected: Snapsho
         },
         label = { Text(stringResource(labelRes)) }
     )
+}
+
+// Review-only: the single "I know words up to lesson N" input. Review draws from lessons 1..N.
+// [maxLesson] is the highest available lesson; typed values are coerced to 1..maxLesson.
+@Composable
+private fun UpToLessonSection(value: Int, maxLesson: Int, onChange: (Int) -> Unit) {
+    SettingSection(stringResource(R.string.settings_up_to_lesson)) {
+        Text(
+            text = stringResource(R.string.settings_up_to_lesson_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        OutlinedTextField(
+            value = if (value > 0) value.toString() else "",
+            onValueChange = { text ->
+                val n = text.filter(Char::isDigit).take(3).toIntOrNull() ?: 0
+                onChange(if (maxLesson > 0) n.coerceIn(0, maxLesson) else n)
+            },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            suffix = {
+                if (maxLesson > 0) Text(stringResource(R.string.settings_up_to_lesson_of, maxLesson))
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+// Review-only stepper for how many new words to introduce per day. Adjusts by [NEW_PER_DAY_STEP]
+// within [MIN_NEW_PER_DAY]..[MAX_NEW_PER_DAY].
+@Composable
+private fun NewPerDaySection(value: Int, onChange: (Int) -> Unit) {
+    SettingSection(stringResource(R.string.settings_new_per_day)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = stringResource(R.string.settings_new_per_day_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
+            )
+            OutlinedButton(
+                onClick = { onChange((value - NEW_PER_DAY_STEP).coerceAtLeast(MIN_NEW_PER_DAY)) },
+                enabled = value > MIN_NEW_PER_DAY
+            ) { Text("−") }
+            Text(
+                text = value.toString(),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 12.dp)
+            )
+            OutlinedButton(
+                onClick = { onChange((value + NEW_PER_DAY_STEP).coerceAtMost(MAX_NEW_PER_DAY)) },
+                enabled = value < MAX_NEW_PER_DAY
+            ) { Text("+") }
+        }
+    }
 }
 
 // A labelled block: small section title above its control.

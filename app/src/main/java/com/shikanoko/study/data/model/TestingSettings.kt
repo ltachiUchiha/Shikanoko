@@ -14,5 +14,11 @@ data class TestingSettings (
     val directions: Set<Direction> = setOf(Direction.JP_TO_MEANING, Direction.MEANING_TO_JP),
     // Review only: start with the hiragana reading shown instead of kanji for Meaning -> JP cards.
     // The Review screen also exposes a live toggle seeded from this value.
-    val showKana: Boolean = false
+    val showKana: Boolean = false,
+    // Review only: the highest Minna lesson the user knows. Review draws words from lessons
+    // 1..upToLesson; 0 means "all lessons". (The practice test uses [lessons] instead.)
+    val upToLesson: Int = 0,
+    // Review only: how many brand-new words to introduce per day. The Review loader caps new cards
+    // at this value (default kept in sync with ReviewQueue.DEFAULT_MAX_NEW_PER_DAY).
+    val maxNewPerDay: Int = 15
     )
