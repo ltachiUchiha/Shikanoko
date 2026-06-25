@@ -30,9 +30,12 @@ import com.shikanoko.study.ui.destination.SettingsScreen
 import com.shikanoko.study.ui.destination.StatisticsDetailScreen
 import com.shikanoko.study.ui.destination.StatisticsScreen
 import com.shikanoko.study.ui.destination.TestingScreen
-import com.shikanoko.study.ui.components.TestingSettingsDialog
+import com.shikanoko.study.ui.screens.TestingSettingsScreen
 import com.shikanoko.study.data.db.WordStat
 import com.shikanoko.study.data.model.TestingSettings
+import com.shikanoko.study.ui.destination.ReviewSettingsScreen
+import com.shikanoko.study.ui.destination.TestingSettingsScreen
+import com.shikanoko.study.ui.screens.WordStatDetailScreen
 import kotlinx.coroutines.launch
 
 @Composable
@@ -53,24 +56,6 @@ fun MainNavigation(navController: NavHostController){
     // The word whose detail screen is showing; set when a Statistics row is tapped.
     val selectedStat = remember { mutableStateOf<WordStat?>(null) }
 
-    if(openSettingsDialog.value){
-        TestingSettingsDialog(
-            onDismiss = { openSettingsDialog.value = false },
-            onConfirm = { settings ->
-                testingSettings.value = settings
-                reviewIgnoreLimit.value = false
-                openSettingsDialog.value = false
-                navController.navigate(settingsTarget.value)
-            },
-            onStudyMore = { settings ->
-                testingSettings.value = settings
-                reviewIgnoreLimit.value = true
-                openSettingsDialog.value = false
-                navController.navigate(ReviewScreen.route)
-            },
-            showDirections = settingsTarget.value == ReviewScreen.route
-        )
-    }
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -90,19 +75,15 @@ fun MainNavigation(navController: NavHostController){
                 NavigationDrawerItem(
                     label = { Text(text = stringResource(id = R.string.menu_testing_name)) },
                     selected = false,
-                    onClick = {
+                    onClick = { navController.navigate(TestingSettingsScreen.route)
                         composableScope.launch { drawerState.close() }
-                        settingsTarget.value = TestingScreen.route
-                        openSettingsDialog.value = true
                     }
                 )
                 NavigationDrawerItem(
                     label = { Text(text = stringResource(id = R.string.menu_review_name)) },
                     selected = false,
-                    onClick = {
+                    onClick = { navController.navigate(ReviewSettingsScreen.route)
                         composableScope.launch { drawerState.close() }
-                        settingsTarget.value = ReviewScreen.route
-                        openSettingsDialog.value = true
                     }
                 )
                 NavigationDrawerItem(
@@ -142,6 +123,40 @@ fun MainNavigation(navController: NavHostController){
                 composable (route = MainScreen.route ) {
                     com.shikanoko.study.ui.screens.MainScreen()
                 }
+                composable (route = TestingSettingsScreen.route ) {
+                    TestingSettingsScreen(
+                        onConfirm = { settings ->
+                            testingSettings.value = settings
+                            reviewIgnoreLimit.value = false
+                            openSettingsDialog.value = false
+                            navController.navigate(TestingScreen.route)
+                        },
+                        onStudyMore = { settings ->
+                            testingSettings.value = settings
+                            reviewIgnoreLimit.value = true
+                            openSettingsDialog.value = false
+                            navController.navigate(ReviewScreen.route)
+                        },
+                        showDirections = false
+                    )
+                }
+                composable (route = ReviewSettingsScreen.route ) {
+                    TestingSettingsScreen(
+                        onConfirm = { settings ->
+                            testingSettings.value = settings
+                            reviewIgnoreLimit.value = false
+                            openSettingsDialog.value = false
+                            navController.navigate(ReviewScreen.route)
+                        },
+                        onStudyMore = { settings ->
+                            testingSettings.value = settings
+                            reviewIgnoreLimit.value = true
+                            openSettingsDialog.value = false
+                            navController.navigate(ReviewScreen.route)
+                        },
+                        showDirections = true
+                    )
+                }
                 composable (route = TestingScreen.route ) {
                     com.shikanoko.study.ui.screens.TestingScreen(navController, testingSettings)
                 }
@@ -171,7 +186,7 @@ fun MainNavigation(navController: NavHostController){
                     // selectedStat is always set before navigating here; the null guard just avoids a
                     // blank screen if the back stack is restored without it.
                     selectedStat.value?.let { stat ->
-                        com.shikanoko.study.ui.screens.WordStatDetailScreen(
+                        WordStatDetailScreen(
                             stat = stat,
                             onBack = { navController.popBackStack() }
                         )

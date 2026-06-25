@@ -16,6 +16,14 @@ object ReviewScreen : NokoDestination {
     override val route = "ReviewScreen"
 }
 
+object TestingSettingsScreen : NokoDestination {
+    override val route = "TestingSettingsScreen"
+}
+
+object ReviewSettingsScreen : NokoDestination {
+    override val route = "ReviewSettingsScreen"
+}
+
 object DBScreen : NokoDestination {
     override val route = "DBScreen"
 }

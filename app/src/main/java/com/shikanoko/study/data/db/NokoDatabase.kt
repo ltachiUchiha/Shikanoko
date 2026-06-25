@@ -267,14 +267,14 @@ fun getDaoInstance(context: Context): NokoDao {
         ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build().nokoDao().also { dao ->
             wordDao = dao
             // To seed development data, do it off the main thread, e.g.:
-             CoroutineScope(Dispatchers.IO).launch {
-                 dao.insertWord(Word(word = "すき", meaning = "любимый"))
-                 dao.insertWord(Word(word = "りょうり", meaning = "блюдо"))
-                 dao.insertWord(Word(word = "ものもの", meaning = "напиток"))
-                 dao.insertWord(Word(word = "かたかな", meaning = "катакана"))
-                 dao.insertWord(Word(word = "ひらがな", meaning = "хирагана"))
-                 dao.insertWord(Word(word = "かんじ", meaning = "иероглиф"))
-             }
+            // CoroutineScope(Dispatchers.IO).launch {
+            //     dao.insertWord(Word(word = "すき", meaning = "любимый"))
+            //     dao.insertWord(Word(word = "りょうり", meaning = "блюдо"))
+            //     dao.insertWord(Word(word = "ものもの", meaning = "напиток"))
+            //     dao.insertWord(Word(word = "かたかな", meaning = "катакана"))
+            //     dao.insertWord(Word(word = "ひらがな", meaning = "хирагана"))
+            //     dao.insertWord(Word(word = "かんじ", meaning = "иероглиф"))
+            // }
         }
     }
 }
