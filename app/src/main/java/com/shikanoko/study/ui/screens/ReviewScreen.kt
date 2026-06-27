@@ -22,6 +22,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
@@ -50,6 +51,7 @@ import com.shikanoko.study.data.model.TestType
 import com.shikanoko.study.data.model.TestingSettings
 import com.shikanoko.study.data.model.withKana
 import com.shikanoko.study.data.srs.AnswerCheck
+import com.shikanoko.study.data.srs.AutoGrade
 import com.shikanoko.study.data.srs.CardPhase
 import com.shikanoko.study.data.srs.DailyCounters
 import com.shikanoko.study.data.srs.Grade
@@ -59,9 +61,11 @@ import com.shikanoko.study.data.srs.Sm2Scheduler
 import com.shikanoko.study.ui.components.AnswerBanner
 import com.shikanoko.study.ui.components.FEEDBACK_MS
 import com.shikanoko.study.ui.components.KanaColumn
+import com.shikanoko.study.ui.components.PauseOverlay
 import com.shikanoko.study.ui.components.PromptText
 import com.shikanoko.study.ui.components.SessionResults
 import com.shikanoko.study.ui.components.StopConfirmDialog
+import com.shikanoko.study.ui.components.TestSession
 import com.shikanoko.study.ui.components.TestStatsHeader
 import com.shikanoko.study.ui.components.TestSummary
 import com.shikanoko.study.ui.components.buildOptions
@@ -84,7 +88,8 @@ private val scheduler = Sm2Scheduler()
 fun ReviewScreen(
     navController: NavController,
     args: MutableState<TestingSettings>,
-    ignoreDailyLimit: Boolean
+    ignoreDailyLimit: Boolean,
+    testSession: TestSession
 ) {
     val settings = args.value
     val context = LocalContext.current
@@ -113,9 +118,9 @@ fun ReviewScreen(
                 CircularProgressIndicator()
             }
         } else if (settings.testType == TestType.CARD) {
-            ReviewByCards(settings, active) { navController.popBackStack(MainScreen.route, false) }
+            ReviewByCards(settings, active, testSession) { navController.popBackStack(MainScreen.route, false) }
         } else {
-            ReviewByEnter(settings, active) { navController.popBackStack(MainScreen.route, false) }
+            ReviewByEnter(settings, active, testSession) { navController.popBackStack(MainScreen.route, false) }
         }
     }
 }
@@ -124,6 +129,7 @@ fun ReviewScreen(
 private fun ReviewByEnter(
     settings: TestingSettings,
     session: ReviewSession,
+    testSession: TestSession,
     onExit: () -> Unit
 ) {
     val context = LocalContext.current
@@ -132,6 +138,8 @@ private fun ReviewByEnter(
 
     val queue = remember { mutableStateListOf<ReviewCandidate>().also { it.addAll(session.queue) } }
     var userValue by remember { mutableStateOf("") }
+    // When the current card was first shown; response time vs. this drives the auto-grade.
+    var shownAt by remember { mutableStateOf(System.currentTimeMillis()) }
 
     val state = remember { ReviewSessionState().also { it.total = session.queue.size } }
     val results = remember { SessionResults() }
@@ -149,11 +157,27 @@ private fun ReviewByEnter(
     var awaitingDecision by remember { mutableStateOf(false) }
     var locked by remember { mutableStateOf(false) }
 
+    // Mark the session live and register how to persist a partial run if the user leaves via the
+    // drawer. Idempotent: skipped once the review has finished (guards against a double record).
+    LaunchedEffect(Unit) {
+        testSession.begin()
+        testSession.recorder = recorder@{
+            if (state.finished) return@recorder
+            val durationMillis = System.currentTimeMillis() - state.startMillis - testSession.clock.pausedMillis()
+            withContext(Dispatchers.IO) {
+                recordSession(context, durationMillis, state.total, state.attempts, state.correct)
+            }
+        }
+    }
+    DisposableEffect(Unit) { onDispose { testSession.end() } }
+
     LaunchedEffect(state.finished) {
         while (!state.finished) {
-            elapsedSeconds = (System.currentTimeMillis() - state.startMillis) / 1000
+            elapsedSeconds = (System.currentTimeMillis() - state.startMillis - testSession.clock.pausedMillis()) / 1000
             delay(1000)
         }
+        // Finished (naturally or via early stop): drop active so the drawer stops intercepting.
+        if (state.finished) testSession.end()
     }
 
     if (state.finished) {
@@ -165,17 +189,19 @@ private fun ReviewByEnter(
 
     val current = queue.first()
 
-    // Commits the final grade, advances the queue, and resets the per-card feedback.
-    fun proceed(finalCorrect: Boolean) {
+    // Commits the auto-derived [grade], advances the queue, and resets the per-card feedback.
+    fun proceed(grade: Grade) {
         scope.launch {
-            if (finalCorrect) state.correct++
-            results.record(current.studyWord, finalCorrect)
-            val newState = withContext(Dispatchers.IO) { commitGrade(context, current, finalCorrect) }
-            advanceQueue(context, queue, current, newState, state)
+            val correct = grade != Grade.AGAIN
+            if (correct) state.correct++
+            results.record(current.studyWord, correct)
+            val newState = withContext(Dispatchers.IO) { commitGrade(context, current, grade) }
+            advanceQueue(context, queue, current, newState, state, testSession.clock.pausedMillis())
             reveal = false
             awaitingDecision = false
             userValue = ""
             locked = false
+            shownAt = System.currentTimeMillis()
         }
     }
 
@@ -184,12 +210,18 @@ private fun ReviewByEnter(
 
     BackHandler(enabled = !state.finished) { showStopDialog = true }
     if (showStopDialog) {
+        // Freeze the timer while the confirmation is shown, mirroring the drawer exit-warning.
+        DisposableEffect(Unit) {
+            testSession.pushDialogPause()
+            onDispose { testSession.popDialogPause() }
+        }
         StopConfirmDialog(
-            onConfirm = { showStopDialog = false; scope.launch { stopReview(context, state) } },
+            onConfirm = { showStopDialog = false; scope.launch { stopReview(context, state, testSession.clock.pausedMillis()) } },
             onDismiss = { showStopDialog = false }
         )
     }
 
+    Box(modifier = Modifier.fillMaxSize()) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -200,7 +232,10 @@ private fun ReviewByEnter(
         TestStatsHeader(
             elapsedSeconds, state.completed, state.total,
             onStop = { showStopDialog = true },
-            progressLabel = stringResource(R.string.review_mastered, state.completed, state.total)
+            progressLabel = stringResource(R.string.review_mastered, state.completed, state.total),
+            paused = testSession.userPaused,
+            pauseEnabled = !locked,
+            onTogglePause = { testSession.toggleUserPause() }
         )
         if (hasMeaningToJp) KanaToggle(showKana) { showKana = it }
         Spacer(Modifier.size(padding))
@@ -219,12 +254,13 @@ private fun ReviewByEnter(
         Spacer(Modifier.size(padding))
 
         if (awaitingDecision) {
-            // Wrong answer: let the user continue or claim the normalization was too strict.
+            // Wrong answer: let the user continue (a lapse) or claim the normalization was too strict.
+            // "I was right" means it was recalled but only after a near-miss, so it grades as HARD.
             Row(horizontalArrangement = Arrangement.spacedBy(padding)) {
-                Button(onClick = { proceed(false) }) {
+                Button(onClick = { proceed(Grade.AGAIN) }) {
                     Text(stringResource(R.string.review_continue))
                 }
-                OutlinedButton(onClick = { proceed(true) }) {
+                OutlinedButton(onClick = { proceed(Grade.HARD) }) {
                     Text(stringResource(R.string.review_i_was_right))
                 }
             }
@@ -239,9 +275,14 @@ private fun ReviewByEnter(
                     lastCorrect = correct
                     locked = true
                     if (correct) {
+                        // Grade from how quickly the answer was typed; capture now, before the delay.
+                        val grade = AutoGrade.fromTiming(
+                            true, System.currentTimeMillis() - shownAt,
+                            AutoGrade.TEXT_EASY_MAX_MS, AutoGrade.TEXT_HARD_MIN_MS
+                        )
                         scope.launch {
                             delay(FEEDBACK_MS)
-                            proceed(true)
+                            proceed(grade)
                         }
                     } else {
                         awaitingDecision = true
@@ -252,12 +293,17 @@ private fun ReviewByEnter(
             }
         }
     }
+        if (testSession.userPaused) {
+            PauseOverlay(onResume = { testSession.toggleUserPause() })
+        }
+    }
 }
 
 @Composable
 private fun ReviewByCards(
     settings: TestingSettings,
     session: ReviewSession,
+    testSession: TestSession,
     onExit: () -> Unit
 ) {
     val context = LocalContext.current
@@ -269,6 +315,8 @@ private fun ReviewByCards(
 
     val queue = remember { mutableStateListOf<ReviewCandidate>().also { it.addAll(session.queue) } }
     var currentWords by remember { mutableStateOf(optionsFor(queue.first())) }
+    // When the current card was first shown; response time vs. this drives the auto-grade.
+    var shownAt by remember { mutableStateOf(System.currentTimeMillis()) }
 
     val state = remember { ReviewSessionState().also { it.total = session.queue.size } }
     val results = remember { SessionResults() }
@@ -283,11 +331,27 @@ private fun ReviewByCards(
     var reveal by remember { mutableStateOf(false) }
     var locked by remember { mutableStateOf(false) }
 
+    // Mark the session live and register how to persist a partial run if the user leaves via the
+    // drawer. Idempotent: skipped once the review has finished (guards against a double record).
+    LaunchedEffect(Unit) {
+        testSession.begin()
+        testSession.recorder = recorder@{
+            if (state.finished) return@recorder
+            val durationMillis = System.currentTimeMillis() - state.startMillis - testSession.clock.pausedMillis()
+            withContext(Dispatchers.IO) {
+                recordSession(context, durationMillis, state.total, state.attempts, state.correct)
+            }
+        }
+    }
+    DisposableEffect(Unit) { onDispose { testSession.end() } }
+
     LaunchedEffect(state.finished) {
         while (!state.finished) {
-            elapsedSeconds = (System.currentTimeMillis() - state.startMillis) / 1000
+            elapsedSeconds = (System.currentTimeMillis() - state.startMillis - testSession.clock.pausedMillis()) / 1000
             delay(1000)
         }
+        // Finished (naturally or via early stop): drop active so the drawer stops intercepting.
+        if (state.finished) testSession.end()
     }
 
     if (state.finished) {
@@ -312,25 +376,37 @@ private fun ReviewByCards(
         state.attempts++
         if (correct) state.correct++
         results.record(current.studyWord, correct)
+        // Grade from how quickly the choice was tapped; capture now, before the feedback delay.
+        val grade = AutoGrade.fromTiming(
+            correct, System.currentTimeMillis() - shownAt,
+            AutoGrade.CARD_EASY_MAX_MS, AutoGrade.CARD_HARD_MIN_MS
+        )
         scope.launch {
-            val newState = withContext(Dispatchers.IO) { commitGrade(context, current, correct) }
+            val newState = withContext(Dispatchers.IO) { commitGrade(context, current, grade) }
             delay(FEEDBACK_MS)
-            advanceQueue(context, queue, current, newState, state)
+            advanceQueue(context, queue, current, newState, state, testSession.clock.pausedMillis())
             reveal = false
             selectedAnswer = null
             if (!state.finished) currentWords = optionsFor(queue.first())
             locked = false
+            shownAt = System.currentTimeMillis()
         }
     }
 
     BackHandler(enabled = !state.finished) { showStopDialog = true }
     if (showStopDialog) {
+        // Freeze the timer while the confirmation is shown, mirroring the drawer exit-warning.
+        DisposableEffect(Unit) {
+            testSession.pushDialogPause()
+            onDispose { testSession.popDialogPause() }
+        }
         StopConfirmDialog(
-            onConfirm = { showStopDialog = false; scope.launch { stopReview(context, state) } },
+            onConfirm = { showStopDialog = false; scope.launch { stopReview(context, state, testSession.clock.pausedMillis()) } },
             onDismiss = { showStopDialog = false }
         )
     }
 
+    Box(modifier = Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -340,7 +416,10 @@ private fun ReviewByCards(
         TestStatsHeader(
             elapsedSeconds, state.completed, state.total,
             onStop = { showStopDialog = true },
-            progressLabel = stringResource(R.string.review_mastered, state.completed, state.total)
+            progressLabel = stringResource(R.string.review_mastered, state.completed, state.total),
+            paused = testSession.userPaused,
+            pauseEnabled = !locked,
+            onTogglePause = { testSession.toggleUserPause() }
         )
         if (hasMeaningToJp) KanaToggle(showKana) { showKana = it }
 
@@ -364,6 +443,10 @@ private fun ReviewByCards(
                     KanaColumn(1f, displayWords.drop(3), currentAnswer, selectedAnswer, reveal, locked, onKanaButtonClick)
                 }
             }
+        }
+    }
+        if (testSession.userPaused) {
+            PauseOverlay(onResume = { testSession.toggleUserPause() })
         }
     }
 }
@@ -397,16 +480,19 @@ private class ReviewSessionState {
     var finalElapsed by mutableStateOf(0L)
 }
 
-// Grades [candidate], persists the new card state, records the answer stat, and bumps the right
-// daily counter. Returns the new scheduler state. Blocking — call inside withContext(Dispatchers.IO).
+// Grades [candidate] with an auto-derived [grade], persists the new card state, records the answer
+// stat, and bumps the right daily counter. Returns the new scheduler state. Blocking — call inside
+// withContext(Dispatchers.IO). AGAIN is the only "wrong" outcome, so the answer stat is correct iff
+// the grade is anything else.
 private suspend fun commitGrade(
     context: Context,
     candidate: ReviewCandidate,
-    correct: Boolean
+    grade: Grade
 ): SchedulerState {
     val now = System.currentTimeMillis()
+    val correct = grade != Grade.AGAIN
     val prev = candidate.state ?: scheduler.initialState(now)
-    val newState = scheduler.review(prev, if (correct) Grade.GOOD else Grade.AGAIN, now)
+    val newState = scheduler.review(prev, grade, now)
     persistReview(context, candidate, newState)
     recordAnswer(context, candidate.studyWord, correct)
     val counters = DailyCounters(context)
@@ -427,7 +513,8 @@ private suspend fun advanceQueue(
     queue: MutableList<ReviewCandidate>,
     current: ReviewCandidate,
     newState: SchedulerState,
-    state: ReviewSessionState
+    state: ReviewSessionState,
+    pausedMillis: Long
 ) {
     queue.removeAt(0)
     val stillLearning = newState.phase == CardPhase.LEARNING || newState.phase == CardPhase.RELEARNING
@@ -437,7 +524,7 @@ private suspend fun advanceQueue(
         state.completed++
     }
     if (queue.isEmpty()) {
-        val durationMillis = System.currentTimeMillis() - state.startMillis
+        val durationMillis = System.currentTimeMillis() - state.startMillis - pausedMillis
         state.finalElapsed = durationMillis / 1000
         // Flip to the summary before the suspending DB write so no recomposition can read an empty
         // queue while still "unfinished".
@@ -450,9 +537,9 @@ private suspend fun advanceQueue(
 
 // Ends the session early (X button / system back): records the partial run and flips to the summary,
 // mirroring advanceQueue's finish path but without waiting for the queue to empty.
-private suspend fun stopReview(context: Context, state: ReviewSessionState) {
+private suspend fun stopReview(context: Context, state: ReviewSessionState, pausedMillis: Long) {
     if (state.finished) return
-    val durationMillis = System.currentTimeMillis() - state.startMillis
+    val durationMillis = System.currentTimeMillis() - state.startMillis - pausedMillis
     state.finalElapsed = durationMillis / 1000
     state.finished = true
     withContext(Dispatchers.IO) {

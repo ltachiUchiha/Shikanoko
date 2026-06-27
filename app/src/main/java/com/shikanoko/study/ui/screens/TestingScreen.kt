@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,6 +19,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
@@ -46,9 +48,11 @@ import com.shikanoko.study.data.model.TestingSettings
 import com.shikanoko.study.ui.components.AnswerBanner
 import com.shikanoko.study.ui.components.FEEDBACK_MS
 import com.shikanoko.study.ui.components.KanaColumn
+import com.shikanoko.study.ui.components.PauseOverlay
 import com.shikanoko.study.ui.components.PromptText
 import com.shikanoko.study.ui.components.SessionResults
 import com.shikanoko.study.ui.components.StopConfirmDialog
+import com.shikanoko.study.ui.components.TestSession
 import com.shikanoko.study.ui.components.TestStatsHeader
 import com.shikanoko.study.ui.components.TestSummary
 import com.shikanoko.study.ui.components.buildOptions
@@ -59,20 +63,20 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun TestingScreen(navController: NavController, args: MutableState<TestingSettings>){
+fun TestingScreen(navController: NavController, args: MutableState<TestingSettings>, session: TestSession){
     Surface (modifier = Modifier
         .fillMaxSize(),
         color = MaterialTheme.colorScheme.surface
     ) {
         if (args.value.testType == TestType.CARD)
-            TestByCards(navController, args.value)
+            TestByCards(navController, args.value, session)
         else
-            TestByEnter(navController, args.value)
+            TestByEnter(navController, args.value, session)
     }
 }
 
 @Composable
-private fun TestByEnter(navController: NavController, settings: TestingSettings){
+private fun TestByEnter(navController: NavController, settings: TestingSettings, session: TestSession){
     val context = LocalContext.current
     val composableScope = rememberCoroutineScope()
     val padding = 8.dp
@@ -109,12 +113,25 @@ private fun TestByEnter(navController: NavController, settings: TestingSettings)
         wordsList.addAll(loaded)
         totalWords = loaded.size
         currentTestingWord = wordsList.random()
+        // Mark the session live and register how to persist a partial run if the user leaves via the
+        // drawer. Idempotent: skipped once the test has finished (guards against a double record).
+        session.begin()
+        session.recorder = recorder@{
+            if (finished) return@recorder
+            val durationMillis = System.currentTimeMillis() - startTime - session.clock.pausedMillis()
+            withContext(Dispatchers.IO) {
+                recordSession(context, durationMillis, totalWords, totalAttempts, correctAttempts)
+            }
+        }
     }
+    // Leaving the screen ends the session (clears active/recorder so the drawer stops intercepting).
+    DisposableEffect(Unit) { onDispose { session.end() } }
 
-    // Live timer: ticks once a second until the test is finished.
+    // Live timer: ticks once a second until the test is finished; paused time is subtracted so the
+    // displayed value freezes while paused.
     LaunchedEffect(finished) {
         while (!finished) {
-            elapsedSeconds = (System.currentTimeMillis() - startTime) / 1000
+            elapsedSeconds = (System.currentTimeMillis() - startTime - session.clock.pausedMillis()) / 1000
             delay(1000)
         }
     }
@@ -130,19 +147,25 @@ private fun TestByEnter(navController: NavController, settings: TestingSettings)
     fun stopEarly() {
         composableScope.launch {
             finishTest(
-                context, startTime, totalWords, totalAttempts, correctAttempts,
-                setElapsed = { finalElapsed = it }, setFinished = { finished = true }
+                context, startTime, session.clock.pausedMillis(), totalWords, totalAttempts, correctAttempts,
+                setElapsed = { finalElapsed = it }, setFinished = { finished = true; session.end() }
             )
         }
     }
     BackHandler(enabled = !finished) { showStopDialog = true }
     if (showStopDialog) {
+        // Freeze the timer while the confirmation is shown, mirroring the drawer exit-warning.
+        DisposableEffect(Unit) {
+            session.pushDialogPause()
+            onDispose { session.popDialogPause() }
+        }
         StopConfirmDialog(
             onConfirm = { showStopDialog = false; stopEarly() },
             onDismiss = { showStopDialog = false }
         )
     }
 
+    Box(modifier = Modifier.fillMaxSize()) {
     Column (
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -150,7 +173,13 @@ private fun TestByEnter(navController: NavController, settings: TestingSettings)
             .padding(top = 40.dp)
             .padding(padding)) {
 
-        TestStatsHeader(elapsedSeconds, totalWords - wordsList.size, totalWords, onStop = { showStopDialog = true })
+        TestStatsHeader(
+            elapsedSeconds, totalWords - wordsList.size, totalWords,
+            onStop = { showStopDialog = true },
+            paused = session.userPaused,
+            pauseEnabled = !locked,
+            onTogglePause = { session.toggleUserPause() }
+        )
 
         Spacer(Modifier.size(padding))
 
@@ -188,8 +217,8 @@ private fun TestByEnter(navController: NavController, settings: TestingSettings)
                     if (correct || !settings.retryWrongAnswers) wordsList.remove(currentTestingWord)
                     if (wordsList.isEmpty()) {
                         finishTest(
-                            context, startTime, totalWords, totalAttempts, correctAttempts,
-                            setElapsed = { finalElapsed = it }, setFinished = { finished = true }
+                            context, startTime, session.clock.pausedMillis(), totalWords, totalAttempts, correctAttempts,
+                            setElapsed = { finalElapsed = it }, setFinished = { finished = true; session.end() }
                         )
                         return@launch
                     }
@@ -200,6 +229,10 @@ private fun TestByEnter(navController: NavController, settings: TestingSettings)
             Text(text = stringResource(id = R.string.testing_check_btn))
         }
     }
+        if (session.userPaused) {
+            PauseOverlay(onResume = { session.toggleUserPause() })
+        }
+    }
 }
 
 // Records the finished session and flips the screen to the summary. Suspend so the
@@ -207,13 +240,14 @@ private fun TestByEnter(navController: NavController, settings: TestingSettings)
 private suspend fun finishTest(
     context: android.content.Context,
     startTime: Long,
+    pausedMillis: Long,
     totalWords: Int,
     totalAttempts: Int,
     correctAttempts: Int,
     setElapsed: (Long) -> Unit,
     setFinished: () -> Unit
 ) {
-    val durationMillis = System.currentTimeMillis() - startTime
+    val durationMillis = System.currentTimeMillis() - startTime - pausedMillis
     setElapsed(durationMillis / 1000)
     withContext(Dispatchers.IO) {
         recordSession(context, durationMillis, totalWords, totalAttempts, correctAttempts)
@@ -246,7 +280,7 @@ fun KanjiCard(){
 }
 
 @Composable
-fun TestByCards(navController: NavController, settings: TestingSettings){
+fun TestByCards(navController: NavController, settings: TestingSettings, session: TestSession){
     val composableScope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -286,12 +320,25 @@ fun TestByCards(navController: NavController, settings: TestingSettings){
         totalWords = loaded.size
         currentTestingWord = wordsList.first()
         currentWords = buildOptions(wordsForUI, currentTestingWord)
+        // Mark the session live and register how to persist a partial run if the user leaves via the
+        // drawer. Idempotent: skipped once the test has finished (guards against a double record).
+        session.begin()
+        session.recorder = recorder@{
+            if (finished) return@recorder
+            val durationMillis = System.currentTimeMillis() - startTime - session.clock.pausedMillis()
+            withContext(Dispatchers.IO) {
+                recordSession(context, durationMillis, totalWords, totalAttempts, correctAttempts)
+            }
+        }
     }
+    // Leaving the screen ends the session (clears active/recorder so the drawer stops intercepting).
+    DisposableEffect(Unit) { onDispose { session.end() } }
 
-    // Live timer: ticks once a second until the test is finished.
+    // Live timer: ticks once a second until the test is finished; paused time is subtracted so the
+    // displayed value freezes while paused.
     LaunchedEffect(finished) {
         while (!finished) {
-            elapsedSeconds = (System.currentTimeMillis() - startTime) / 1000
+            elapsedSeconds = (System.currentTimeMillis() - startTime - session.clock.pausedMillis()) / 1000
             delay(1000)
         }
     }
@@ -314,8 +361,8 @@ fun TestByCards(navController: NavController, settings: TestingSettings){
                 if (correct || !settings.retryWrongAnswers) wordsList.remove(currentTestingWord)
                 if (wordsList.isEmpty()) {
                     finishTest(
-                        context, startTime, totalWords, totalAttempts, correctAttempts,
-                        setElapsed = { finalElapsed = it }, setFinished = { finished = true }
+                        context, startTime, session.clock.pausedMillis(), totalWords, totalAttempts, correctAttempts,
+                        setElapsed = { finalElapsed = it }, setFinished = { finished = true; session.end() }
                     )
                     return@launch
                 }
@@ -337,26 +384,38 @@ fun TestByCards(navController: NavController, settings: TestingSettings){
     fun stopEarly() {
         composableScope.launch {
             finishTest(
-                context, startTime, totalWords, totalAttempts, correctAttempts,
-                setElapsed = { finalElapsed = it }, setFinished = { finished = true }
+                context, startTime, session.clock.pausedMillis(), totalWords, totalAttempts, correctAttempts,
+                setElapsed = { finalElapsed = it }, setFinished = { finished = true; session.end() }
             )
         }
     }
     BackHandler(enabled = !finished) { showStopDialog = true }
     if (showStopDialog) {
+        // Freeze the timer while the confirmation is shown, mirroring the drawer exit-warning.
+        DisposableEffect(Unit) {
+            session.pushDialogPause()
+            onDispose { session.popDialogPause() }
+        }
         StopConfirmDialog(
             onConfirm = { showStopDialog = false; stopEarly() },
             onDismiss = { showStopDialog = false }
         )
     }
 
+    Box(modifier = Modifier.fillMaxSize()) {
     Column (
         modifier = Modifier
             .fillMaxSize()
             .padding(top = 40.dp)
             .padding(8.dp)) {
 
-        TestStatsHeader(elapsedSeconds, totalWords - wordsList.size, totalWords, onStop = { showStopDialog = true })
+        TestStatsHeader(
+            elapsedSeconds, totalWords - wordsList.size, totalWords,
+            onStop = { showStopDialog = true },
+            paused = session.userPaused,
+            pauseEnabled = !locked,
+            onTogglePause = { session.toggleUserPause() }
+        )
 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -380,6 +439,10 @@ fun TestByCards(navController: NavController, settings: TestingSettings){
                     KanaColumn(1f, currentWords.drop(3), currentTestingWord.answer, selectedAnswer, reveal, locked, onKanaButtonClick)
                 }
             }
+        }
+    }
+        if (session.userPaused) {
+            PauseOverlay(onResume = { session.toggleUserPause() })
         }
     }
 

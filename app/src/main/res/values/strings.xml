@@ -86,6 +86,9 @@
     <string name="stop_confirm_message">Your progress so far will be saved.</string>
     <string name="stop_confirm_yes">Stop</string>
     <string name="stop_confirm_no">Keep going</string>
+    <string name="pause_test">Pause</string>
+    <string name="resume_test">Resume</string>
+    <string name="paused_label">Paused</string>
     <string name="summary_by_lesson">By lesson</string>
     <string name="summary_by_word">By word</string>
     <string name="stats_back">Back</string>

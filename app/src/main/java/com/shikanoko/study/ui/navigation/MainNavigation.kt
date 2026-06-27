@@ -31,6 +31,8 @@ import com.shikanoko.study.ui.destination.StatisticsDetailScreen
 import com.shikanoko.study.ui.destination.StatisticsScreen
 import com.shikanoko.study.ui.destination.TestingScreen
 import com.shikanoko.study.ui.screens.TestingSettingsScreen
+import com.shikanoko.study.ui.components.StopConfirmDialog
+import com.shikanoko.study.ui.components.TestSession
 import com.shikanoko.study.data.db.WordStat
 import com.shikanoko.study.data.model.TestingSettings
 import com.shikanoko.study.ui.destination.ReviewSettingsScreen
@@ -56,6 +58,24 @@ fun MainNavigation(navController: NavHostController){
     // The word whose detail screen is showing; set when a Statistics row is tapped.
     val selectedStat = remember { mutableStateOf<WordStat?>(null) }
 
+    // Shared with the test/review screens: lets the drawer warn before abandoning a running session
+    // and pause it while the warning is shown.
+    val testSession = remember { TestSession() }
+    val showExitWarning = remember { mutableStateOf(false) }
+    val pendingRoute = remember { mutableStateOf<String?>(null) }
+
+    // Navigating from the drawer: if a session is live, pause it and warn before leaving; otherwise go.
+    fun navigateFromDrawer(route: String) {
+        composableScope.launch { drawerState.close() }
+        if (testSession.active) {
+            pendingRoute.value = route
+            testSession.pushDialogPause()
+            showExitWarning.value = true
+        } else {
+            navController.navigate(route)
+        }
+    }
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -68,51 +88,37 @@ fun MainNavigation(navController: NavHostController){
                 NavigationDrawerItem(
                     label = { Text(text = stringResource(id = R.string.menu_main_name)) },
                     selected = false,
-                    onClick = { navController.navigate(MainScreen.route)
-                        composableScope.launch { drawerState.close() }
-                    }
+                    onClick = { navigateFromDrawer(MainScreen.route) }
                 )
                 NavigationDrawerItem(
                     label = { Text(text = stringResource(id = R.string.menu_testing_name)) },
                     selected = false,
-                    onClick = { navController.navigate(TestingSettingsScreen.route)
-                        composableScope.launch { drawerState.close() }
-                    }
+                    onClick = { navigateFromDrawer(TestingSettingsScreen.route) }
                 )
                 NavigationDrawerItem(
                     label = { Text(text = stringResource(id = R.string.menu_review_name)) },
                     selected = false,
-                    onClick = { navController.navigate(ReviewSettingsScreen.route)
-                        composableScope.launch { drawerState.close() }
-                    }
+                    onClick = { navigateFromDrawer(ReviewSettingsScreen.route) }
                 )
                 NavigationDrawerItem(
                     label = { Text(text = stringResource(id = R.string.menu_vocab_name)) },
                     selected = false,
-                    onClick = { navController.navigate(MinnaScreen.route)
-                        composableScope.launch { drawerState.close() }
-                    }
+                    onClick = { navigateFromDrawer(MinnaScreen.route) }
                 )
                 NavigationDrawerItem(
                     label = { Text(text = stringResource(id = R.string.menu_stats_name)) },
                     selected = false,
-                    onClick = { navController.navigate(StatisticsScreen.route)
-                        composableScope.launch { drawerState.close() }
-                    }
+                    onClick = { navigateFromDrawer(StatisticsScreen.route) }
                 )
                 NavigationDrawerItem(
                     label = { Text(text = stringResource(id = R.string.menu_db_name)) },
                     selected = false,
-                    onClick = { navController.navigate(DBScreen.route)
-                        composableScope.launch { drawerState.close() }
-                    }
+                    onClick = { navigateFromDrawer(DBScreen.route) }
                 )
                 NavigationDrawerItem(
                     label = { Text(text = stringResource(id = R.string.menu_settings_name)) },
                     selected = false,
-                    onClick = { navController.navigate(SettingsScreen.route)
-                        composableScope.launch { drawerState.close() }
-                    }
+                    onClick = { navigateFromDrawer(SettingsScreen.route) }
                 )
                 // ...other drawer items
             }
@@ -158,11 +164,11 @@ fun MainNavigation(navController: NavHostController){
                     )
                 }
                 composable (route = TestingScreen.route ) {
-                    com.shikanoko.study.ui.screens.TestingScreen(navController, testingSettings)
+                    com.shikanoko.study.ui.screens.TestingScreen(navController, testingSettings, testSession)
                 }
                 composable (route = ReviewScreen.route ) {
                     com.shikanoko.study.ui.screens.ReviewScreen(
-                        navController, testingSettings, reviewIgnoreLimit.value
+                        navController, testingSettings, reviewIgnoreLimit.value, testSession
                     )
                 }
                 composable (route = DBScreen.route) {
@@ -194,5 +200,28 @@ fun MainNavigation(navController: NavHostController){
                 }
             }
         }
+    }
+
+    // The drawer tried to leave a running session: confirm first (progress is saved). The session is
+    // paused while this is shown (pushDialogPause in navigateFromDrawer); recording runs in
+    // composableScope so it survives the navigation that disposes the test screen.
+    if (showExitWarning.value) {
+        StopConfirmDialog(
+            onConfirm = {
+                showExitWarning.value = false
+                val target = pendingRoute.value
+                pendingRoute.value = null
+                composableScope.launch {
+                    testSession.recorder?.invoke()
+                    testSession.end()
+                    if (target != null) navController.navigate(target)
+                }
+            },
+            onDismiss = {
+                showExitWarning.value = false
+                pendingRoute.value = null
+                testSession.popDialogPause()
+            }
+        )
     }
 }

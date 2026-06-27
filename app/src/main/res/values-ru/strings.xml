@@ -87,6 +87,9 @@
     <string name="stop_confirm_message">Текущий прогресс будет сохранён.</string>
     <string name="stop_confirm_yes">Остановить</string>
     <string name="stop_confirm_no">Продолжить</string>
+    <string name="pause_test">Пауза</string>
+    <string name="resume_test">Продолжить</string>
+    <string name="paused_label">Пауза</string>
     <string name="summary_by_lesson">По урокам</string>
     <string name="summary_by_word">По словам</string>
     <string name="stats_back">Назад</string>
