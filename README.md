@@ -13,7 +13,7 @@ Android application for record, remember, and study new words, as well as test y
 
 * Adding new words
 * Test your knowledge of words by entering their translation
-* Test by choosing the correct option (in progress)
+* Test by choosing the correct option
 * That's all for now ツ
 
 ## Supporting languages
